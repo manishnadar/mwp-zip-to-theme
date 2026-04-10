@@ -1,0 +1,9 @@
+/* App.css — Layout resets for the editor shell */
+#root {
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  text-align: left;
+  height: 100%;
+  overflow: hidden;
+}
