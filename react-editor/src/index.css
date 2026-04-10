@@ -783,12 +783,19 @@ html, body, #root {
 .gjs-am-close:hover { color: #ef4444 !important; }
 
 /* ── Modal / Dialog ─────────────────────────────────────────────────────── */
+.gjs-mdl-container {
+  z-index: 999999 !important;
+  position: fixed !important;
+  top: 0 !important; left: 0 !important;
+  width: 100vw !important; height: 100vh !important;
+}
 .gjs-mdl-backdrop {
-  background: rgba(0,0,0,.7) !important;
-  backdrop-filter: blur(4px) !important;
+  background: rgba(0,0,0,.8) !important;
+  backdrop-filter: blur(8px) !important;
+  z-index: 999998 !important;
 }
 .gjs-mdl-dialog {
-  background: var(--bg-panel) !important;
+  background: #13131e !important;
   backdrop-filter: blur(40px) saturate(200%) !important;
   -webkit-backdrop-filter: blur(40px) saturate(200%) !important;
   border: 1px solid var(--border-soft) !important;
@@ -796,6 +803,14 @@ html, body, #root {
   box-shadow: 0 40px 100px rgba(0,0,0,.9), 0 0 0 1px rgba(124,58,237,.2) !important;
   color: var(--text-primary) !important;
   overflow: hidden !important;
+  z-index: 999999 !important;
+  margin: auto !important;
+  position: relative !important;
+  width: 850px !important;
+  max-width: 90vw !important;
+  max-height: 90vh !important;
+  display: flex !important;
+  flex-direction: column !important;
 }
 .gjs-mdl-header {
   background: var(--bg-card) !important;

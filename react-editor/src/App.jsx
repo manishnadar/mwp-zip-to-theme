@@ -68,19 +68,19 @@ function LoadingScreen() {
 
 /* ── Premium SVG Icons ── */
 const icons = {
-  undo: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13"/></svg>,
-  redo: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 019-9 9 9 0 016 2.3l3 2.7"/></svg>,
-  desktop: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>,
-  tablet: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>,
-  mobile: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>,
-  preview: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>,
-  fullscreen: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"/></svg>,
-  clear: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>,
-  save: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>,
-  check: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>,
-  logo: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>,
-  moon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>,
-  sun: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+  undo: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7v6h6" /><path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13" /></svg>,
+  redo: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 7v6h-6" /><path d="M3 17a9 9 0 019-9 9 9 0 016 2.3l3 2.7" /></svg>,
+  desktop: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2" /><line x1="8" y1="21" x2="16" y2="21" /><line x1="12" y1="17" x2="12" y2="21" /></svg>,
+  tablet: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2" /><line x1="12" y1="18" x2="12.01" y2="18" /></svg>,
+  mobile: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2" /><line x1="12" y1="18" x2="12.01" y2="18" /></svg>,
+  preview: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>,
+  fullscreen: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3" /></svg>,
+  clear: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" /></svg>,
+  save: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z" /><polyline points="17 21 17 13 7 13 7 21" /><polyline points="7 3 7 8 15 8" /></svg>,
+  check: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>,
+  logo: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" /></svg>,
+  moon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" /></svg>,
+  sun: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5" /><line x1="12" y1="1" x2="12" y2="3" /><line x1="12" y1="21" x2="12" y2="23" /><line x1="4.22" y1="4.22" x2="5.64" y2="5.64" /><line x1="18.36" y1="18.36" x2="19.78" y2="19.78" /><line x1="1" y1="12" x2="3" y2="12" /><line x1="21" y1="12" x2="23" y2="12" /><line x1="4.22" y1="19.78" x2="5.64" y2="18.36" /><line x1="18.36" y1="5.64" x2="19.78" y2="4.22" /></svg>
 };
 
 /* ── Top Toolbar ────────────────────────────────────────────────────────── */
@@ -91,8 +91,8 @@ function TopBar({ editorInstance, themeColorsRef }) {
 
   const DEVICES = [
     { id: 'desktop', label: 'Desktop', icon: icons.desktop },
-    { id: 'tablet',  label: 'Tablet',  icon: icons.tablet },
-    { id: 'mobile-portrait', label: 'Mobile',  icon: icons.mobile },
+    { id: 'tablet', label: 'Tablet', icon: icons.tablet },
+    { id: 'mobile-portrait', label: 'Mobile', icon: icons.mobile },
   ];
 
   const switchDevice = (deviceId) => {
@@ -106,18 +106,18 @@ function TopBar({ editorInstance, themeColorsRef }) {
     const newTheme = uiTheme === 'dark' ? 'light' : 'dark';
     setUiTheme(newTheme);
     document.documentElement.setAttribute('data-theme', newTheme);
-    
+
     // Attempt to sync inner iframe if it has a html/body
     try {
       const iframeDoc = editorInstance?.Canvas.getDocument();
       if (iframeDoc) iframeDoc.documentElement.setAttribute('data-theme', newTheme);
-    } catch(e) {}
+    } catch (e) { }
   };
 
   const handleSave = () => {
     if (!editorInstance) return;
     const html = editorInstance.getHtml();
-    const css  = editorInstance.getCss();
+    const css = editorInstance.getCss();
     const { primary, secondary } = themeColorsRef.current;
     const colorVarsCss = getThemeCssVars(primary, secondary);
     const finalPayload = `<style>\n${colorVarsCss}\n${css}\n</style>\n${html}`;
@@ -125,8 +125,8 @@ function TopBar({ editorInstance, themeColorsRef }) {
     axios.post(`${window.zttData.apiUrl}${editorInstance._postId || ''}`, {
       content: finalPayload
     }, { headers: { 'X-WP-Nonce': window.zttData.nonce } })
-    .then(() => { setSaved(true); setTimeout(() => setSaved(false), 2500); })
-    .catch(err => { console.error(err); alert('Save failed.'); });
+      .then(() => { setSaved(true); setTimeout(() => setSaved(false), 2500); })
+      .catch(err => { console.error(err); alert('Save failed.'); });
   };
 
   const handleUndo = () => editorInstance?.runCommand('core:undo');
@@ -187,8 +187,8 @@ function TopBar({ editorInstance, themeColorsRef }) {
       {/* ── History controls ── */}
       <div style={{ display: 'flex', gap: 4 }}>
         {[
-          { icon: icons.undo, title: 'Undo',   action: handleUndo },
-          { icon: icons.redo, title: 'Redo',   action: handleRedo },
+          { icon: icons.undo, title: 'Undo', action: handleUndo },
+          { icon: icons.redo, title: 'Redo', action: handleRedo },
         ].map(({ icon, title, action }) => (
           <button key={title} onClick={action} title={title} style={topBtnStyle()}>
             <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{icon}</span>
@@ -232,8 +232,8 @@ function TopBar({ editorInstance, themeColorsRef }) {
       {/* ── Preview + Fullscreen ── */}
       <div style={{ display: 'flex', gap: 4 }}>
         {[
-          { icon: icons.preview, title: 'Preview',    action: handlePreview },
-          { icon: icons.fullscreen,  title: 'Fullscreen', action: handleFullscreen },
+          { icon: icons.preview, title: 'Preview', action: handlePreview },
+          { icon: icons.fullscreen, title: 'Fullscreen', action: handleFullscreen },
           { icon: icons.clear, title: 'Clear Canvas', action: handleClearCanvas },
         ].map(({ icon, title, action }) => (
           <button key={title} onClick={action} title={title} style={topBtnStyle()}>
@@ -266,8 +266,8 @@ function TopBar({ editorInstance, themeColorsRef }) {
           borderRadius: 8,
           color: '#fff', fontWeight: 600, fontSize: 13.5,
           fontFamily: 'var(--font-ui)', cursor: 'pointer',
-          boxShadow: saved 
-            ? '0 0 16px rgba(5,150,105,.4), inset 0 1px 3px rgba(255,255,255,.2)' 
+          boxShadow: saved
+            ? '0 0 16px rgba(5,150,105,.4), inset 0 1px 3px rgba(255,255,255,.2)'
             : '0 0 16px rgba(124,58,237,.4), inset 0 1px 3px rgba(255,255,255,.2)',
           transition: 'all .25s ease',
           flexShrink: 0,
@@ -336,6 +336,9 @@ function App({ postId }) {
         height: '100%',
         width: '100%',
         storageManager: false,
+        modal: {
+          appendTo: document.body,    // ← escape overflow:hidden stacking context
+        },
         panels: {
           defaults: [
             {
@@ -378,9 +381,9 @@ function App({ postId }) {
           appendTo: 'parent',
           offset: { top: 26, left: -166 },
           palette: [
-            ['#000000','#333333','#555555','#777777','#999999','#AAAAAA','#CCCCCC','#EEEEEE','#FFFFFF'],
-            ['#F44336','#E91E63','#9C27B0','#673AB7','#3F51B5','#2196F3','#03A9F4','#00BCD4','#009688'],
-            ['#4CAF50','#8BC34A','#CDDC39','#FFEB3B','#FFC107','#FF9800','#FF5722','#795548','#607D8B'],
+            ['#000000', '#333333', '#555555', '#777777', '#999999', '#AAAAAA', '#CCCCCC', '#EEEEEE', '#FFFFFF'],
+            ['#F44336', '#E91E63', '#9C27B0', '#673AB7', '#3F51B5', '#2196F3', '#03A9F4', '#00BCD4', '#009688'],
+            ['#4CAF50', '#8BC34A', '#CDDC39', '#FFEB3B', '#FFC107', '#FF9800', '#FF5722', '#795548', '#607D8B'],
           ],
         },
         plugins: [
@@ -503,11 +506,11 @@ function App({ postId }) {
       // ──────────────────────────────────────────────────────────────────────
 
       registerModules(editor);
-      
+
       // ── FORCE REMOVAL OF REPEATED TOOLS (Native Panels) ─────────────────
       // We explicitly remove the native panels that repeat TopBar functionality.
       ['options', 'commands', 'devices-c'].forEach(p => {
-        try { editor.Panels.removePanel(p); } catch(e) {}
+        try { editor.Panels.removePanel(p); } catch (e) { }
       });
       // ────────────────────────────────────────────────────────────────────
 
@@ -547,7 +550,7 @@ function App({ postId }) {
         // If the icon doesn't have our signature background plate, wrap it or replace it.
         if (!media.includes('background:rgba(124,58,237,0.08)') && !media.includes('background: rgba(124, 58, 237, 0.08)')) {
           let path = '<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>';
-          
+
           if (id.includes('text') || id.includes('quote')) {
             path = '<path d="M4 7h16M4 12h16M4 17h10"/>';
           } else if (id.includes('image') || id.includes('video') || id.includes('gallery')) {
@@ -592,7 +595,7 @@ function App({ postId }) {
         run(editor, sender) {
           sender && sender.set('active', 0);
           const html = editor.getHtml();
-          const css  = editor.getCss();
+          const css = editor.getCss();
           const { primary, secondary } = themeColorsRef.current;
           const colorVarsCss = getThemeCssVars(primary, secondary);
           const finalPayload = `<style>\n${colorVarsCss}\n${css}\n</style>\n${html}`;
@@ -600,8 +603,8 @@ function App({ postId }) {
           axios.post(`${window.zttData.apiUrl}${postId}`, { content: finalPayload }, {
             headers: { 'X-WP-Nonce': window.zttData.nonce }
           })
-          .then(() => alert('Saved to WordPress successfully!'))
-          .catch(err => { console.error(err); alert('Failed to save.'); });
+            .then(() => alert('Saved to WordPress successfully!'))
+            .catch(err => { console.error(err); alert('Failed to save.'); });
         },
       });
 
