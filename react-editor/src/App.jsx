@@ -148,6 +148,21 @@ function unlockImportedComponents(editor) {
   });
 }
 
+function buildWpHtmlBlock(content) {
+  return `<!-- wp:html -->\n${content}\n<!-- /wp:html -->`;
+}
+
+function buildSavePayload(editor, themeColorsRef) {
+  const html = editor.getHtml();
+  const css = editor.getCss();
+  const { primary, secondary } = themeColorsRef.current;
+  const colorVarsCss = getThemeCssVars(primary, secondary);
+  const merged = `<style>\n${colorVarsCss}\n${css}\n</style>\n${html}`;
+  // Keep content inside a Custom HTML block so WordPress does not auto-format
+  // bootstrap/layout markup after publishing.
+  return buildWpHtmlBlock(merged);
+}
+
 /* ── Loading Screen ─────────────────────────────────────────────────────── */
 function LoadingScreen() {
   return (
@@ -248,11 +263,7 @@ function TopBar({ editorInstance, themeColorsRef }) {
 
   const handleSave = () => {
     if (!editorInstance) return;
-    const html = editorInstance.getHtml();
-    const css = editorInstance.getCss();
-    const { primary, secondary } = themeColorsRef.current;
-    const colorVarsCss = getThemeCssVars(primary, secondary);
-    const finalPayload = `<style>\n${colorVarsCss}\n${css}\n</style>\n${html}`;
+    const finalPayload = buildSavePayload(editorInstance, themeColorsRef);
 
     axios.post(`${window.zttData.apiUrl}${editorInstance._postId || ''}`, {
       content: finalPayload
@@ -807,11 +818,7 @@ function App({ postId }) {
       editor.Commands.add('save-wp', {
         run(editor, sender) {
           sender && sender.set('active', 0);
-          const html = editor.getHtml();
-          const css = editor.getCss();
-          const { primary, secondary } = themeColorsRef.current;
-          const colorVarsCss = getThemeCssVars(primary, secondary);
-          const finalPayload = `<style>\n${colorVarsCss}\n${css}\n</style>\n${html}`;
+          const finalPayload = buildSavePayload(editor, themeColorsRef);
 
           axios.post(`${window.zttData.apiUrl}${postId}`, { content: finalPayload }, {
             headers: { 'X-WP-Nonce': window.zttData.nonce }
