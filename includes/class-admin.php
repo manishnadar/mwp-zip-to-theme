@@ -130,7 +130,7 @@ class ZTT_Admin
         wp_enqueue_script(
             'ztt-gutenberg-editor',
             $js_url,
-            ['wp-plugins', 'wp-edit-post', 'wp-element', 'wp-components', 'wp-data', 'wp-i18n'],
+            ['jquery', 'wp-data'],
             filemtime(ZTT_PLUGIN_PATH . 'assets/gutenberg.js'),
             true
         );
