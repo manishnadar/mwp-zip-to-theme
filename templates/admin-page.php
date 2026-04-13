@@ -1,11 +1,12 @@
-<?php if ( isset( $_GET['success'] ) ) : ?>
-<div class="ztt-notice ztt-notice--success">
-    <span class="dashicons dashicons-yes-alt"></span>
-    <div>
-        <strong>Theme Converted &amp; Deployed!</strong>
-        <p>Your WordPress theme is now live. Images were automatically imported to your Media Library. <a href="<?php echo esc_url( admin_url('themes.php') ); ?>">Manage Themes &rarr;</a></p>
+<?php if (isset($_GET['success'])): ?>
+    <div class="ztt-notice ztt-notice--success">
+        <span class="dashicons dashicons-yes-alt"></span>
+        <div>
+            <strong>Theme Converted &amp; Deployed!</strong>
+            <p>Your WordPress theme is now live. Images were automatically imported to your Media Library. <a
+                    href="<?php echo esc_url(admin_url('themes.php')); ?>">Manage Themes &rarr;</a></p>
+        </div>
     </div>
-</div>
 <?php endif; ?>
 
 <div class="ztt-page">
@@ -17,7 +18,8 @@
         </div>
         <div class="ztt-header__text">
             <h1>HTML → WordPress Theme</h1>
-            <p>Drop any static HTML/ZIP archive and watch it transform into a fully native WordPress theme — with Media Library imports, pages, and AI-assisted layout editing.</p>
+            <p>Drop any static HTML/ZIP archive and watch it transform into a fully native WordPress theme — with Media
+                Library imports, pages, and AI-assisted layout editing.</p>
         </div>
         <div class="ztt-header__badge">
             <span class="dashicons dashicons-star-filled"></span>
@@ -67,7 +69,8 @@
 
         <!-- ── Primary Form Card ─────────────────────────────────────────── -->
         <div class="ztt-card ztt-card--main">
-            <form method="post" enctype="multipart/form-data" action="<?php echo esc_url( admin_url('admin-post.php') ); ?>" id="ztt-convert-form">
+            <form method="post" enctype="multipart/form-data"
+                action="<?php echo esc_url(admin_url('admin-post.php')); ?>" id="ztt-convert-form">
 
                 <?php wp_nonce_field('ztt_nonce'); ?>
                 <input type="hidden" name="action" value="ztt_convert">
@@ -88,7 +91,8 @@
                             </div>
                             <p class="ztt-dropzone__title">Drop your ZIP archive here</p>
                             <p class="ztt-dropzone__sub">
-                                Drag &amp; drop your <strong>.zip</strong> file, or <span class="ztt-dropzone__browse">browse to upload</span>
+                                Drag &amp; drop your <strong>.zip</strong> file, or <span
+                                    class="ztt-dropzone__browse">browse to upload</span>
                             </p>
                             <div class="ztt-dropzone__pill">
                                 <span class="dashicons dashicons-media-archive"></span>
@@ -105,7 +109,8 @@
                                 <span id="ztt-file-name" class="ztt-dropzone__file-name"></span>
                                 <span id="ztt-file-size" class="ztt-dropzone__file-size"></span>
                                 <span class="ztt-dropzone__file-badge">
-                                    <span class="dashicons dashicons-yes" style="font-size:11px;width:11px;height:11px;"></span>
+                                    <span class="dashicons dashicons-yes"
+                                        style="font-size:11px;width:11px;height:11px;"></span>
                                     Ready
                                 </span>
                             </div>
@@ -126,7 +131,6 @@
                             <span class="ztt-label-hint">Shown in WP Themes panel</span>
                         </label>
                         <div class="ztt-input-wrap">
-                            <span class="dashicons dashicons-art ztt-input-icon"></span>
                             <input type="text" name="theme_name" id="ztt-theme-name" class="ztt-input"
                                 placeholder="e.g. My Modern Site" required autocomplete="off">
                         </div>
@@ -138,12 +142,12 @@
                             <span class="ztt-label-hint">Auto-generated</span>
                         </label>
                         <div class="ztt-input-wrap">
-                            <span class="dashicons dashicons-tag ztt-input-icon"></span>
                             <input type="text" name="theme_slug" id="ztt-theme-slug" class="ztt-input"
                                 placeholder="e.g. my-modern-site" required autocomplete="off">
                         </div>
                         <div class="ztt-slug-preview" id="ztt-slug-preview">
-                            <span class="dashicons dashicons-admin-links" style="font-size:11px;width:11px;height:11px;"></span>
+                            <span class="dashicons dashicons-admin-links"
+                                style="font-size:11px;width:11px;height:11px;"></span>
                             <span id="ztt-slug-preview-val"></span>
                         </div>
                     </div>
@@ -153,7 +157,6 @@
                             Author Name
                         </label>
                         <div class="ztt-input-wrap">
-                            <span class="dashicons dashicons-admin-users ztt-input-icon"></span>
                             <input type="text" name="author" id="ztt-author" class="ztt-input"
                                 placeholder="Your name or company" autocomplete="off">
                         </div>
@@ -169,7 +172,8 @@
                         <span class="ztt-toggle__switch"></span>
                         <div class="ztt-toggle__content">
                             <span class="ztt-toggle__label">Activate Theme Immediately</span>
-                            <p class="ztt-toggle__hint">Switches the live theme right after conversion. Always adjustable later via Appearance &rarr; Themes.</p>
+                            <p class="ztt-toggle__hint">Switches the live theme right after conversion. Always
+                                adjustable later via Appearance &rarr; Themes.</p>
                         </div>
                     </label>
                 </div>
@@ -180,7 +184,8 @@
                         <span class="dashicons dashicons-update-alt ztt-btn__icon"></span>
                         <span class="ztt-btn__label">Convert to WordPress Theme</span>
                     </button>
-                    <a href="#" class="ztt-btn ztt-btn--ghost" onclick="document.getElementById('ztt-convert-form').reset(); return false;">
+                    <a href="#" class="ztt-btn ztt-btn--ghost"
+                        onclick="document.getElementById('ztt-convert-form').reset(); return false;">
                         Reset
                     </a>
                 </div>
@@ -257,8 +262,9 @@
                     Visual AI Editor
                 </div>
                 <div class="ztt-feature-card">
-                    <p>After conversion, refine your layout with the drag-and-drop GrapesJS editor — powered by an AI assistant for instant changes.</p>
-                    <a href="<?php echo esc_url( admin_url('edit.php?post_type=page') ); ?>" class="ztt-link-btn">
+                    <p>After conversion, refine your layout with the drag-and-drop GrapesJS editor — powered by an AI
+                        assistant for instant changes.</p>
+                    <a href="<?php echo esc_url(admin_url('edit.php?post_type=page')); ?>" class="ztt-link-btn">
                         <span class="dashicons dashicons-admin-page"></span>
                         Open Pages &amp; Edit
                     </a>

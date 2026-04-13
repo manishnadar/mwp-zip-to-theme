@@ -51,6 +51,7 @@ class ZTT_Template_Parser
         $body_inner = '';
         $header_html = '';
         $footer_html = '';
+        $body_scripts = []; // <script src> tags found in <body>
 
         $heads = $doc->getElementsByTagName('head');
         if ($heads->length > 0) {
@@ -78,7 +79,13 @@ class ZTT_Template_Parser
             }
 
             foreach ($body_node->childNodes as $child) {
-                if ($child->nodeName === 'script') continue;
+                if ($child->nodeName === 'script') {
+                    // Collect external script src paths for wp_enqueue_script generation
+                    if ($child->hasAttribute('src')) {
+                        $body_scripts[] = $child->getAttribute('src');
+                    }
+                    continue;
+                }
                 
                 $html = $doc->saveHTML($child);
                 $tag = strtolower($child->nodeName);
@@ -114,11 +121,12 @@ class ZTT_Template_Parser
         }
 
         return [
-            'title'  => $title,
-            'head'   => $head_inner,
-            'header' => $header_html,
-            'footer' => $footer_html,
-            'body'   => $body_inner
+            'title'        => $title,
+            'head'         => $head_inner,
+            'header'       => $header_html,
+            'footer'       => $footer_html,
+            'body'         => $body_inner,
+            'body_scripts' => $body_scripts,
         ];
     }
 
