@@ -42,6 +42,15 @@ function preloaderCssRule() {
       pointer-events: none !important;
       z-index: -9999 !important;
     }
+    [data-aos],
+    [class*="fade-"],
+    [class*="reveal"] {
+      opacity: 1 !important;
+      transform: none !important;
+      visibility: visible !important;
+      animation: none !important;
+      transition: none !important;
+    }
   `;
 }
 
@@ -102,6 +111,41 @@ function removeLikelyPreloaders(cdoc) {
     cdoc.documentElement.style.overflow = 'visible';
   }
   return removed;
+}
+
+function normalizeWpMarkup(html) {
+  return html
+    .replace(/<!--\s*\/?wp:[\s\S]*?-->/g, '')
+    .replace(/<div[^>]*class="[^"]*wp-block-html[^"]*"[^>]*>([\s\S]*?)<\/div>/gi, '$1');
+}
+
+function unlockImportedComponents(editor) {
+  if (!editor) return;
+  const wrapper = editor.getWrapper();
+  if (!wrapper) return;
+
+  const textTags = new Set(['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'span', 'a', 'li', 'button', 'label']);
+  const all = wrapper.find('*');
+  all.forEach((cmp) => {
+    const tag = (cmp.get('tagName') || '').toLowerCase();
+    const attrs = cmp.getAttributes?.() || {};
+    const cls = String(attrs.class || '').toLowerCase();
+    const id = String(attrs.id || '').toLowerCase();
+    const isPreloaderLike = PRELOADER_KEYWORDS.some(k => cls.includes(k) || id.includes(k));
+
+    if (isPreloaderLike) return;
+
+    cmp.set({
+      selectable: true,
+      hoverable: true,
+      draggable: true,
+      droppable: true,
+      highlightable: true,
+      editable: textTags.has(tag),
+      copyable: true,
+      removable: true,
+    });
+  });
 }
 
 /* ── Loading Screen ─────────────────────────────────────────────────────── */
@@ -536,18 +580,33 @@ function App({ postId }) {
 
       const stripPreloaders = (html) => {
         const p = new DOMParser();
-        const d = p.parseFromString(html, 'text/html');
+        const d = p.parseFromString(normalizeWpMarkup(html), 'text/html');
         d.querySelectorAll(PRELOADER_SELECTOR_STRING).forEach(el => el.remove());
+        d.querySelectorAll('[data-aos], [data-aos-delay], [data-aos-duration], [data-aos-offset], [data-aos-anchor], [data-aos-anchor-placement], [data-aos-easing], [data-aos-once]').forEach(el => {
+          [
+            'data-aos',
+            'data-aos-delay',
+            'data-aos-duration',
+            'data-aos-offset',
+            'data-aos-anchor',
+            'data-aos-anchor-placement',
+            'data-aos-easing',
+            'data-aos-once',
+          ].forEach(attr => el.removeAttribute(attr));
+          el.classList.remove('aos-init', 'aos-animate');
+        });
         return d.body.innerHTML;
       };
 
       editor.setComponents(stripPreloaders(htmlContent));
+      unlockImportedComponents(editor);
       setEditorInstance(editor);
 
       const nukePreloadersInCanvas = (cdoc) => removeLikelyPreloaders(cdoc);
 
       editor.on('load', () => {
         nukePreloadersInCanvas(editor.Canvas.getDocument());
+        unlockImportedComponents(editor);
       });
 
       editor.on('load', () => {
