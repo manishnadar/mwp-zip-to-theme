@@ -16,6 +16,94 @@ import registerModules from './modules';
 import ThemeColorPanel, { getThemeCssVars } from './components/ThemeColorPanel';
 import './App.css';
 
+const PRELOADER_KEYWORDS = ['preload', 'loader', 'loading', 'spinner', 'pace'];
+const PRELOADER_BASE_SELECTORS = [
+  '#preloader', '#pre-loader', '#preloader-it', '#page-preloader', '#site-preloader',
+  '#loader', '#loading', '#page-loader',
+  '.preloader', '.pre-loader', '.preloader-wrapper', '.preloader-container',
+  '.loader', '.loading', '.site-loader', '.page-loader',
+  '.preload', '.preload-wrapper', '.preloading',
+];
+const PRELOADER_ATTR_SELECTORS = PRELOADER_KEYWORDS.flatMap(k => ([
+  `[id*="${k}" i]`,
+  `[class*="${k}" i]`,
+  `[data-role*="${k}" i]`,
+  `[data-testid*="${k}" i]`,
+  `[aria-label*="${k}" i]`,
+]));
+const PRELOADER_SELECTOR_STRING = [...PRELOADER_BASE_SELECTORS, ...PRELOADER_ATTR_SELECTORS].join(',');
+
+function preloaderCssRule() {
+  return `
+    ${PRELOADER_SELECTOR_STRING} {
+      display: none !important;
+      visibility: hidden !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
+      z-index: -9999 !important;
+    }
+  `;
+}
+
+function removeLikelyPreloaders(cdoc) {
+  if (!cdoc) return 0;
+  let removed = 0;
+  const seen = new Set();
+  const exclusions = ['glightbox-container', 'gloader', 'gjs-'];
+  const nodes = Array.from(cdoc.querySelectorAll('*'));
+  const vw = cdoc.documentElement.clientWidth || cdoc.body.clientWidth || 0;
+  const vh = cdoc.documentElement.clientHeight || cdoc.body.clientHeight || 0;
+
+  const safeRemove = (el) => {
+    if (!el || !el.parentNode || seen.has(el)) return;
+    seen.add(el);
+    el.parentNode.removeChild(el);
+    removed += 1;
+  };
+
+  cdoc.querySelectorAll(PRELOADER_SELECTOR_STRING).forEach(safeRemove);
+
+  nodes.forEach((el) => {
+    if (!el || !el.parentElement || seen.has(el)) return;
+    const id = (el.id || '').toLowerCase();
+    const cls = (typeof el.className === 'string' ? el.className : '').toLowerCase();
+    const attrs = [
+      id,
+      cls,
+      (el.getAttribute('name') || '').toLowerCase(),
+      (el.getAttribute('data-role') || '').toLowerCase(),
+      (el.getAttribute('aria-label') || '').toLowerCase(),
+      (el.getAttribute('data-testid') || '').toLowerCase(),
+    ].join(' ');
+    if (exclusions.some(ex => attrs.includes(ex))) return;
+
+    const s = cdoc.defaultView.getComputedStyle(el);
+    const z = Number.parseInt(s.zIndex, 10);
+    const rect = el.getBoundingClientRect();
+    const coversViewport = vw > 0 && vh > 0 && rect.width >= vw * 0.85 && rect.height >= vh * 0.85;
+    const isPositioned = ['fixed', 'absolute', 'sticky'].includes(s.position);
+    const isVisible = s.display !== 'none' && s.visibility !== 'hidden' && parseFloat(s.opacity || '1') > 0.01;
+    const pointerBlocking = s.pointerEvents !== 'none';
+    const keywordHit = PRELOADER_KEYWORDS.some(k => attrs.includes(k));
+    const highZ = Number.isFinite(z) && z >= 90;
+
+    const looksLikePreloader =
+      (keywordHit && isPositioned && (highZ || coversViewport)) ||
+      (coversViewport && isPositioned && highZ && isVisible && pointerBlocking);
+
+    if (looksLikePreloader) safeRemove(el);
+  });
+
+  if (cdoc.body) {
+    cdoc.body.style.overflow = 'visible';
+    cdoc.body.style.display = 'block';
+  }
+  if (cdoc.documentElement) {
+    cdoc.documentElement.style.overflow = 'visible';
+  }
+  return removed;
+}
+
 /* ── Loading Screen ─────────────────────────────────────────────────────── */
 function LoadingScreen() {
   return (
@@ -144,15 +232,8 @@ function TopBar({ editorInstance, themeColorsRef }) {
     try {
       const doc = editorInstance.Canvas.getDocument();
       if (!doc) return;
-      // Aggressive cleanup inside canvas
-      const selectors = ['#preloader', '.preloader', '#loader', '.loader', '#loading', '.loading', '.preloader-wrapper'];
-      selectors.forEach(s => {
-        doc.querySelectorAll(s).forEach(el => el.remove());
-      });
-      doc.body.style.overflow = 'visible';
-      doc.body.style.display = 'block';
-      doc.documentElement.style.overflow = 'visible';
-      alert('Preloaders purged. The canvas should now be visible.');
+      const purged = removeLikelyPreloaders(doc);
+      alert(`Removed ${purged} blocking preloader element(s).`);
     } catch (e) {
       console.error(e);
     }
@@ -344,16 +425,9 @@ function App({ postId }) {
         const parser = new DOMParser();
         const doc = parser.parseFromString(frontendRes.data, 'text/html');
         const cssLinks = Array.from(doc.querySelectorAll('link[rel="stylesheet"]')).map(l => l.href);
-        // Add Swiper CSS and Force-hide Preloaders
+        // Add Swiper CSS and force-hide preloaders
         cssLinks.push('https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css');
-        cssLinks.push('data:text/css,' + encodeURIComponent(`
-          #preloader, .preloader, #loader, .loader, #loading, .loading, .site-loader, .page-loader, .preloader-wrapper, #pre-loader { 
-            display: none !important; 
-            visibility: hidden !important; 
-            opacity: 0 !important; 
-            pointer-events: none !important; 
-          }
-        `));
+        cssLinks.push('data:text/css,' + encodeURIComponent(preloaderCssRule()));
         initEditor(htmlContent, cssLinks);
       })
       .catch(error => {
@@ -453,70 +527,42 @@ function App({ postId }) {
         const doc = editor.Canvas.getDocument();
         if (doc) {
           const style = doc.createElement('style');
-          style.textContent = `
-            #preloader, .preloader, #loader, .loader, #loading, .loading, .site-loader, .page-loader, .preloader-wrapper, #pre-loader, .preloader-it, #preloader-it { 
-              display: none !important; 
-              visibility: hidden !important; 
-              opacity: 0 !important; 
-              pointer-events: none !important; 
-              z-index: -9999 !important;
-            }
-          `;
+          style.textContent = preloaderCssRule();
           doc.head.appendChild(style);
         }
       });
 
       editor._postId = postId;
 
-      // Strip preloader elements from HTML before loading into canvas
-      const PRELOADER_SELECTORS = [
-        '#preloader', '#pre-loader', '#preloader-it', '#page-preloader', '#site-preloader',
-        '#loader', '#loading', '#page-loader',
-        '.preloader', '.pre-loader', '.preloader-wrapper', '.preloader-container',
-        '.loader', '.loading', '.site-loader', '.page-loader',
-        '.preload', '.preload-wrapper', '.preloading',
-      ].join(',');
-
       const stripPreloaders = (html) => {
         const p = new DOMParser();
         const d = p.parseFromString(html, 'text/html');
-        d.querySelectorAll(PRELOADER_SELECTORS).forEach(el => el.remove());
+        d.querySelectorAll(PRELOADER_SELECTOR_STRING).forEach(el => el.remove());
         return d.body.innerHTML;
       };
 
       editor.setComponents(stripPreloaders(htmlContent));
       setEditorInstance(editor);
 
-      // After canvas renders, use JS inside the iframe to nuke any surviving
-      // preloader — catches elements the CSS override can't remove (e.g. those
-      // with inline styles, or added by a script after load).
-      const nukePreloadersInCanvas = (cdoc) => {
-        if (!cdoc) return;
-        cdoc.querySelectorAll(PRELOADER_SELECTORS).forEach(el => el.remove());
-        // Also kill any fixed full-viewport overlay that might be a custom preloader
-        cdoc.querySelectorAll('*').forEach(el => {
-          const s = cdoc.defaultView.getComputedStyle(el);
-          if (
-            s.position === 'fixed' &&
-            parseInt(s.zIndex, 10) > 100 &&
-            parseInt(s.width, 10)  >= cdoc.documentElement.clientWidth  * 0.9 &&
-            parseInt(s.height, 10) >= cdoc.documentElement.clientHeight * 0.9
-          ) {
-            el.remove();
-          }
-        });
-        cdoc.body.style.overflow = 'visible';
-        cdoc.body.style.display  = 'block';
-      };
+      const nukePreloadersInCanvas = (cdoc) => removeLikelyPreloaders(cdoc);
 
       editor.on('load', () => {
         nukePreloadersInCanvas(editor.Canvas.getDocument());
       });
 
-      // Belt-and-suspenders: run again 800ms after load in case a script
-      // re-creates the preloader element after the initial DOM is ready.
       editor.on('load', () => {
-        setTimeout(() => nukePreloadersInCanvas(editor.Canvas.getDocument()), 800);
+        [300, 1200, 2500].forEach(delay => {
+          setTimeout(() => nukePreloadersInCanvas(editor.Canvas.getDocument()), delay);
+        });
+
+        const cdoc = editor.Canvas.getDocument();
+        if (!cdoc || !cdoc.body || !cdoc.defaultView?.MutationObserver) return;
+
+        const observer = new cdoc.defaultView.MutationObserver(() => {
+          nukePreloadersInCanvas(cdoc);
+        });
+        observer.observe(cdoc.body, { childList: true, subtree: true });
+        setTimeout(() => observer.disconnect(), 5000);
       });
 
       // ── Force premium dark theme on native GrapesJS managers ─────────────
