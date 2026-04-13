@@ -272,46 +272,59 @@ export default function registerDiviModules(editor) {
   bm.add('divi-slider', {
     label: 'Slider', category: CAT.media,
     media: svg('M1 12h4M19 12h4M7 5l10 7-10 7V5z'),
-    content: sec(`
-      <div style="position:relative;border-radius:28px;overflow:hidden;
-        background:rgba(255,255,255,.02);border:1px solid ${c.border};
-        min-height:480px;display:flex;flex-direction:column;
-        align-items:center;justify-content:center;text-align:center;padding:80px 40px;">
-        <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
-          width:600px;height:600px;background:radial-gradient(circle,
-          rgba(129,140,248,.08) 0%,transparent 70%);border-radius:50%;pointer-events:none;"></div>
-        <div style="position:relative;z-index:2;max-width:640px;">
-          <div style="font-size:12px;font-weight:700;color:${c.accent};
-            letter-spacing:.1em;text-transform:uppercase;margin-bottom:20px;">Slide 1 of 3</div>
-          ${h2('Stunning Visual Experiences', '54px')}
-          ${para('Build captivating full-width slides with rich media, text overlays, and call-to-action buttons.')}
-          <div style="display:flex;gap:12px;justify-content:center;">${btn('Get Started')}${btn('Learn More', false)}</div>
+    content: {
+      type: 'swiper-container',
+      content: `
+        <div class="swiper-wrapper">
+          ${[1,2,3].map(i => `
+            <div class="swiper-slide" style="min-height:480px; display:flex; align-items:center; justify-content:center; text-align:center; padding:80px 40px; background:rgba(255,255,255,.02); border:1px solid ${c.border}; border-radius:28px; position:relative; overflow:hidden;">
+              <div style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:600px; height:600px; background:radial-gradient(circle, rgba(124,58,237,.08) 0%, transparent 70%); border-radius:50%; pointer-events:none;"></div>
+              <div style="position:relative; z-index:2; max-width:640px;">
+                <div style="font-size:12px; font-weight:700; color:${c.accent}; letter-spacing:.1em; text-transform:uppercase; margin-bottom:20px;">Slide ${i} of 3</div>
+                ${h2('Stunning Visual Experiences', '54px')}
+                ${para('Build captivating slides with rich media, text overlays, and call-to-action buttons.')}
+                <div style="display:flex; gap:12px; justify-content:center;">${btn('Get Started')}${btn('Learn More', false)}</div>
+              </div>
+            </div>
+          `).join('')}
         </div>
-        <div style="position:absolute;bottom:24px;display:flex;gap:8px;z-index:2;">
-          ${[1,2,3].map((i,idx) => `<div style="width:${idx===0?'24px':'8px'};height:8px;
-            border-radius:4px;background:${idx===0?'#818cf8':'rgba(255,255,255,.2)'};
-            transition:width .3s;"></div>`).join('')}
-        </div>
-      </div>
-    `, '40px'),
+        <div class="swiper-pagination"></div>
+        <div class="swiper-button-prev" style="color:${c.accent};"></div>
+        <div class="swiper-button-next" style="color:${c.accent};"></div>
+        <style>
+          .swiper-button-next:after, .swiper-button-prev:after { font-size: 24px !important; font-weight: 800; }
+          .swiper-pagination-bullet { background: ${c.dim} !important; opacity: 0.3; }
+          .swiper-pagination-bullet-active { background: ${c.accent} !important; opacity: 1; box-shadow: 0 0 10px ${c.accent}; }
+        </style>
+      `
+    }
   });
 
   /** Fullwidth Slider */
   bm.add('divi-fw-slider', {
     label: 'Fullwidth Slider', category: CAT.fullwidth,
     media: svg('M1 12h22M7 5l10 7-10 7V5z'),
-    content: `<section style="width:100%;min-height:600px;background:#0a0a14;position:relative;
-      overflow:hidden;display:flex;align-items:center;justify-content:center;${f}color:${c.txt};">
-      <div style="position:absolute;inset:0;background:linear-gradient(135deg,
-        rgba(129,140,248,.12) 0%,rgba(192,132,252,.08) 100%);"></div>
-      <div style="position:relative;z-index:2;text-align:center;max-width:760px;padding:0 24px;">
-        <div style="font-size:12px;font-weight:700;color:${c.accent};
-          letter-spacing:.1em;text-transform:uppercase;margin-bottom:20px;">Fullwidth Slide</div>
-        ${h2('Immersive Full-Screen Hero', '68px')}
-        ${para('Make a bold statement with edge-to-edge imagery and compelling typography.')}
-        <div style="display:flex;gap:16px;justify-content:center;">${btn('Start Now')}${btn('See Examples', false)}</div>
-      </div>
-    </section>`,
+    content: {
+      type: 'swiper-container',
+      content: `
+        <div class="swiper-wrapper">
+          ${[1,2].map(i => `
+            <div class="swiper-slide" style="min-height:600px; background:#0a0a14; position:relative; overflow:hidden; display:flex; align-items:center; justify-content:center; ${f} color:#fff;">
+              <div style="position:absolute; inset:0; background:linear-gradient(135deg, rgba(124,58,237,.12) 0%, rgba(6,182,212,.08) 100%);"></div>
+              <div style="position:relative; z-index:2; text-align:center; max-width:760px; padding:0 24px;">
+                <div style="font-size:12px; font-weight:700; color:${c.accent}; letter-spacing:.1em; text-transform:uppercase; margin-bottom:20px;">Fullwidth Slide ${i}</div>
+                ${h2('Immersive Full-Screen Hero', '68px')}
+                ${para('Make a bold statement with edge-to-edge imagery and compelling typography.')}
+                <div style="display:flex; gap:16px; justify-content:center;">${btn('Start Now')}${btn('See Examples', false)}</div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+        <div class="swiper-pagination"></div>
+        <div class="swiper-button-prev" style="color:${c.accent};"></div>
+        <div class="swiper-button-next" style="color:${c.accent};"></div>
+      `
+    }
   });
 
   /** Audio */

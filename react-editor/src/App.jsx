@@ -9,7 +9,6 @@ import tabsPlugin from 'grapesjs-tabs';
 import tooltipPlugin from 'grapesjs-tooltip';
 import countdownPlugin from 'grapesjs-component-countdown';
 import typedPlugin from 'grapesjs-typed';
-import sliderPlugin from 'grapesjs-lory-slider';
 import styleBgPlugin from 'grapesjs-style-bg';
 import axios from 'axios';
 import AIChat from './components/AIChat';
@@ -80,7 +79,8 @@ const icons = {
   check: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>,
   logo: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" /></svg>,
   moon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" /></svg>,
-  sun: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5" /><line x1="12" y1="1" x2="12" y2="3" /><line x1="12" y1="21" x2="12" y2="23" /><line x1="4.22" y1="4.22" x2="5.64" y2="5.64" /><line x1="18.36" y1="18.36" x2="19.78" y2="19.78" /><line x1="1" y1="12" x2="3" y2="12" /><line x1="21" y1="12" x2="23" y2="12" /><line x1="4.22" y1="19.78" x2="5.64" y2="18.36" /><line x1="18.36" y1="5.64" x2="19.78" y2="4.22" /></svg>
+  sun: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5" /><line x1="12" y1="1" x2="12" y2="3" /><line x1="12" y1="21" x2="12" y2="23" /><line x1="4.22" y1="4.22" x2="5.64" y2="5.64" /><line x1="18.36" y1="18.36" x2="19.78" y2="19.78" /><line x1="1" y1="12" x2="3" y2="12" /><line x1="21" y1="12" x2="23" y2="12" /><line x1="4.22" y1="19.78" x2="5.64" y2="18.36" /><line x1="18.36" y1="5.64" x2="19.78" y2="4.22" /></svg>,
+  zap: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" /></svg>
 };
 
 /* ── Top Toolbar ────────────────────────────────────────────────────────── */
@@ -136,6 +136,25 @@ function TopBar({ editorInstance, themeColorsRef }) {
   const handleClearCanvas = () => {
     if (window.confirm('Clear all canvas content?')) {
       editorInstance?.setComponents('');
+    }
+  };
+
+  const handleNukeLoader = () => {
+    if (!editorInstance) return;
+    try {
+      const doc = editorInstance.Canvas.getDocument();
+      if (!doc) return;
+      // Aggressive cleanup inside canvas
+      const selectors = ['#preloader', '.preloader', '#loader', '.loader', '#loading', '.loading', '.preloader-wrapper'];
+      selectors.forEach(s => {
+        doc.querySelectorAll(s).forEach(el => el.remove());
+      });
+      doc.body.style.overflow = 'visible';
+      doc.body.style.display = 'block';
+      doc.documentElement.style.overflow = 'visible';
+      alert('Preloaders purged. The canvas should now be visible.');
+    } catch (e) {
+      console.error(e);
     }
   };
 
@@ -235,6 +254,7 @@ function TopBar({ editorInstance, themeColorsRef }) {
           { icon: icons.preview, title: 'Preview', action: handlePreview },
           { icon: icons.fullscreen, title: 'Fullscreen', action: handleFullscreen },
           { icon: icons.clear, title: 'Clear Canvas', action: handleClearCanvas },
+          { icon: icons.zap, title: 'Fix: Nuke Preloader', action: handleNukeLoader },
         ].map(({ icon, title, action }) => (
           <button key={title} onClick={action} title={title} style={topBtnStyle()}>
             <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{icon}</span>
@@ -308,6 +328,11 @@ function App({ postId }) {
   const postIdRef = useRef(postId);
 
   useEffect(() => {
+    const fetchTimer = setTimeout(() => {
+      setLoading(false);
+      console.warn('React loading screen timed out - forcing visibility.');
+    }, 12000);
+
     const fetchContent = axios.get(`${window.zttData.apiUrl}${postId}?context=edit`, {
       headers: { 'X-WP-Nonce': window.zttData.nonce }
     });
@@ -319,12 +344,25 @@ function App({ postId }) {
         const parser = new DOMParser();
         const doc = parser.parseFromString(frontendRes.data, 'text/html');
         const cssLinks = Array.from(doc.querySelectorAll('link[rel="stylesheet"]')).map(l => l.href);
+        // Add Swiper CSS and Force-hide Preloaders
+        cssLinks.push('https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css');
+        cssLinks.push('data:text/css,' + encodeURIComponent(`
+          #preloader, .preloader, #loader, .loader, #loading, .loading, .site-loader, .page-loader, .preloader-wrapper, #pre-loader { 
+            display: none !important; 
+            visibility: hidden !important; 
+            opacity: 0 !important; 
+            pointer-events: none !important; 
+          }
+        `));
         initEditor(htmlContent, cssLinks);
       })
       .catch(error => {
         console.error('Error fetching page data', error);
+        setLoading(false); // Ensure loader is hidden even on error
         alert('Failed to load page content or live stylesheets.');
       });
+
+    return () => clearTimeout(fetchTimer);
   }, [postId]);
 
   const initEditor = (htmlContent, cssLinks) => {
@@ -389,7 +427,7 @@ function App({ postId }) {
         plugins: [
           webpagePreset, blocksBasic, formsPlugin, flexboxPlugin,
           customCodePlugin, tabsPlugin, tooltipPlugin, countdownPlugin,
-          typedPlugin, sliderPlugin, styleBgPlugin,
+          typedPlugin, styleBgPlugin,
         ],
         pluginsOpts: {
           [webpagePreset]: {},
@@ -401,15 +439,85 @@ function App({ postId }) {
           [tooltipPlugin]: {},
           [countdownPlugin]: {},
           [typedPlugin]: {},
-          [sliderPlugin]: {},
           [styleBgPlugin]: {},
         },
-        canvas: { styles: cssLinks },
+        canvas: { 
+          styles: cssLinks,
+          scripts: [
+            'https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js'
+          ]
+        },
+      });
+
+      editor.on('load', () => {
+        const doc = editor.Canvas.getDocument();
+        if (doc) {
+          const style = doc.createElement('style');
+          style.textContent = `
+            #preloader, .preloader, #loader, .loader, #loading, .loading, .site-loader, .page-loader, .preloader-wrapper, #pre-loader, .preloader-it, #preloader-it { 
+              display: none !important; 
+              visibility: hidden !important; 
+              opacity: 0 !important; 
+              pointer-events: none !important; 
+              z-index: -9999 !important;
+            }
+          `;
+          doc.head.appendChild(style);
+        }
       });
 
       editor._postId = postId;
-      editor.setComponents(htmlContent);
+
+      // Strip preloader elements from HTML before loading into canvas
+      const PRELOADER_SELECTORS = [
+        '#preloader', '#pre-loader', '#preloader-it', '#page-preloader', '#site-preloader',
+        '#loader', '#loading', '#page-loader',
+        '.preloader', '.pre-loader', '.preloader-wrapper', '.preloader-container',
+        '.loader', '.loading', '.site-loader', '.page-loader',
+        '.preload', '.preload-wrapper', '.preloading',
+      ].join(',');
+
+      const stripPreloaders = (html) => {
+        const p = new DOMParser();
+        const d = p.parseFromString(html, 'text/html');
+        d.querySelectorAll(PRELOADER_SELECTORS).forEach(el => el.remove());
+        return d.body.innerHTML;
+      };
+
+      editor.setComponents(stripPreloaders(htmlContent));
       setEditorInstance(editor);
+
+      // After canvas renders, use JS inside the iframe to nuke any surviving
+      // preloader — catches elements the CSS override can't remove (e.g. those
+      // with inline styles, or added by a script after load).
+      const nukePreloadersInCanvas = (cdoc) => {
+        if (!cdoc) return;
+        cdoc.querySelectorAll(PRELOADER_SELECTORS).forEach(el => el.remove());
+        // Also kill any fixed full-viewport overlay that might be a custom preloader
+        cdoc.querySelectorAll('*').forEach(el => {
+          const s = cdoc.defaultView.getComputedStyle(el);
+          if (
+            s.position === 'fixed' &&
+            parseInt(s.zIndex, 10) > 100 &&
+            parseInt(s.width, 10)  >= cdoc.documentElement.clientWidth  * 0.9 &&
+            parseInt(s.height, 10) >= cdoc.documentElement.clientHeight * 0.9
+          ) {
+            el.remove();
+          }
+        });
+        cdoc.body.style.overflow = 'visible';
+        cdoc.body.style.display  = 'block';
+      };
+
+      editor.on('load', () => {
+        nukePreloadersInCanvas(editor.Canvas.getDocument());
+      });
+
+      // Belt-and-suspenders: run again 800ms after load in case a script
+      // re-creates the preloader element after the initial DOM is ready.
+      editor.on('load', () => {
+        setTimeout(() => nukePreloadersInCanvas(editor.Canvas.getDocument()), 800);
+      });
 
       // ── Force premium dark theme on native GrapesJS managers ─────────────
       // GrapesJS dynamically applies `gjs-one-bg`, `gjs-two-bg`, etc. via JS.

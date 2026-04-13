@@ -13,12 +13,35 @@ class ZTT_Admin
         
         // Add row actions
         add_filter('page_row_actions', [$this, 'add_visual_editor_link'], 10, 2);
+        add_filter('post_row_actions', [$this, 'add_visual_editor_link'], 10, 2);
+
+        // Add button to single edit screen
+        add_action('edit_form_after_title', [$this, 'display_visual_editor_button']);
+
+        // Gutenberg integration
+        add_action('enqueue_block_editor_assets', [$this, 'gutenberg_assets']);
     }
 
     public function add_visual_editor_link($actions, $post) {
         $url = admin_url('admin.php?page=ztt-visual-editor&post_id=' . $post->ID);
-        $actions['ztt_editor'] = '<a href="' . esc_url($url) . '" style="color:#0071a1;font-weight:bold;">Visual Editor</a>';
+        $actions['ztt_editor'] = '<a href="' . esc_url($url) . '" style="color:#7c3aed;font-weight:bold;">Visual Editor</a>';
         return $actions;
+    }
+
+    public function display_visual_editor_button($post) {
+        $url = admin_url('admin.php?page=ztt-visual-editor&post_id=' . $post->ID);
+        ?>
+        <div id="ztt-visual-editor-button-wrap" style="margin: 20px 0 10px;">
+            <a href="<?php echo esc_url($url); ?>" class="button button-primary button-large" style="background: #7c3aed !important; border-color: #6d28d9 !important; font-weight: 600; height: auto; padding: 10px 24px; text-shadow: none; box-shadow: 0 4px 14px rgba(124,58,237,0.3); transition: all .2s; display: inline-flex; align-items: center; gap: 8px;">
+                <span class="dashicons dashicons-layout" style="margin: 0; line-height: 1;"></span>
+                Edit with Visual Editor
+            </a>
+            <style>
+                #ztt-visual-editor-button-wrap a:hover { background: #6d28d9 !important; transform: translateY(-1px); box-shadow: 0 6px 20px rgba(124,58,237,0.4); }
+                #ztt-visual-editor-button-wrap a:active { transform: translateY(0); }
+            </style>
+        </div>
+        <?php
     }
 
     public function menu()
@@ -63,13 +86,17 @@ class ZTT_Admin
             $css_path = ZTT_PLUGIN_PATH . 'react-editor/dist/assets/index.css';
 
             if (file_exists($js_path)) {
+                $post_id = isset($_GET['post_id']) ? intval($_GET['post_id']) : 0;
+                $post_type = get_post_type($post_id);
+                $api_base = ($post_type === 'page') ? 'pages' : 'posts';
+
                 wp_enqueue_script('ztt-react-app', ZTT_PLUGIN_URL . 'react-editor/dist/assets/index.js', ['wp-element'], filemtime($js_path), true);
                 
                 wp_localize_script('ztt-react-app', 'zttData', [
-                    'apiUrl' => rest_url('wp/v2/pages/'),
+                    'apiUrl' => rest_url("wp/v2/{$api_base}/"),
                     'proxyUrl' => rest_url('ztt/v1/claude'),
                     'nonce'  => wp_create_nonce('wp_rest'),
-                    'frontendUrl' => isset($_GET['post_id']) ? get_permalink(intval($_GET['post_id'])) : ''
+                    'frontendUrl' => $post_id ? get_permalink($post_id) : ''
                 ]);
             }
             if (file_exists($css_path)) {
@@ -93,6 +120,25 @@ class ZTT_Admin
             ";
             wp_add_inline_style('ztt-react-app-style', $custom_css);
         }
+    }
+
+    public function gutenberg_assets() {
+        $post_id = get_the_ID();
+        if (!$post_id) return;
+
+        $js_url = ZTT_PLUGIN_URL . 'assets/gutenberg.js';
+        wp_enqueue_script(
+            'ztt-gutenberg-editor',
+            $js_url,
+            ['wp-plugins', 'wp-edit-post', 'wp-element', 'wp-components', 'wp-data', 'wp-i18n'],
+            filemtime(ZTT_PLUGIN_PATH . 'assets/gutenberg.js'),
+            true
+        );
+
+        wp_localize_script('ztt-gutenberg-editor', 'zttGutenbergData', [
+            'editorUrl' => admin_url('admin.php?page=ztt-visual-editor&post_id=' . $post_id),
+            'postId'    => $post_id
+        ]);
     }
 
     public function render()

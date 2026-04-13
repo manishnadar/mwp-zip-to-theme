@@ -486,7 +486,101 @@ export default function registerModules(editor) {
     `
   });
 
+  /* ══════════════════════════════════════════════════════════
+   * PREMIUM SWIPER SLIDER MODULE
+   * ══════════════════════════════════════════════════════════ */
+  
+  // 1. Component Definitions
+  editor.DomComponents.addType('swiper-container', {
+    model: {
+      defaults: {
+        tagName: 'div',
+        attributes: { class: 'swiper premium-slider' },
+        traits: [
+          { type: 'checkbox', name: 'loop', label: 'Loop', changeProp: 1 },
+          { type: 'number', name: 'delay', label: 'Autoplay Delay', changeProp: 1 },
+          { type: 'select', name: 'effect', label: 'Effect', options: [
+            { id: 'slide', name: 'Slide' },
+            { id: 'fade', name: 'Fade' },
+            { id: 'cube', name: 'Cube' },
+            { id: 'coverflow', name: 'Coverflow' },
+          ], changeProp: 1 },
+        ],
+        // Sync properties to attributes for the script to read
+        'change:loop': (m, v) => m.addAttributes({ 'data-loop': v }),
+        'change:delay': (m, v) => m.addAttributes({ 'data-delay': v }),
+        'change:effect': (m, v) => m.addAttributes({ 'data-effect': v }),
+        script: function() {
+          const el = this;
+          const options = {
+            loop: el.getAttribute('data-loop') === 'true',
+            autoplay: { delay: parseInt(el.getAttribute('data-delay')) || 5000 },
+            effect: el.getAttribute('data-effect') || 'slide',
+            pagination: { el: el.querySelector('.swiper-pagination'), clickable: true },
+            navigation: { 
+              nextEl: el.querySelector('.swiper-button-next'), 
+              prevEl: el.querySelector('.swiper-button-prev') 
+            },
+          };
+          const init = () => {
+            if (el.swiper) el.swiper.destroy();
+            if (typeof Swiper !== 'undefined') new Swiper(el, options);
+          };
+          if (typeof Swiper === 'undefined') {
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js';
+            script.onload = init;
+            document.head.appendChild(script);
+          } else {
+            init();
+          }
+        },
+      },
+    },
+  });
+
+  // 2. Add the Block
+  bm.add('premium-slider', {
+    label: 'Slider (Swiper)',
+    category: cats.interactive,
+    media: makeSvg('M1 12h4M19 12h4M7 5l10 7-10 7V5z'),
+    content: {
+      type: 'swiper-container',
+      content: `
+        <div class="swiper-wrapper">
+          <div class="swiper-slide" style="height:400px; display:flex; align-items:center; justify-content:center; background:rgba(124,58,237,0.1); border-radius:24px; border:1px solid ${colors.border}; backdrop-filter:blur(10px);">
+            <div style="text-align:center;">
+              <h2 style="font-size:48px; font-weight:800; margin-bottom:10px;">Slide One</h2>
+              <p style="color:${colors.textMuted};">Premium Glassmorphic Slide Content</p>
+            </div>
+          </div>
+          <div class="swiper-slide" style="height:400px; display:flex; align-items:center; justify-content:center; background:rgba(6,182,212,0.1); border-radius:24px; border:1px solid ${colors.border}; backdrop-filter:blur(10px);">
+            <div style="text-align:center;">
+              <h2 style="font-size:48px; font-weight:800; margin-bottom:10px;">Slide Two</h2>
+              <p style="color:${colors.textMuted};">Fully interactive and responsive</p>
+            </div>
+          </div>
+          <div class="swiper-slide" style="height:400px; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.03); border-radius:24px; border:1px solid ${colors.border}; backdrop-filter:blur(10px);">
+            <div style="text-align:center;">
+              <h2 style="font-size:48px; font-weight:800; margin-bottom:10px;">Slide Three</h2>
+              <p style="color:${colors.textMuted};">Unlimited possibilities</p>
+            </div>
+          </div>
+        </div>
+        <div class="swiper-pagination"></div>
+        <div class="swiper-button-prev" style="color:${colors.accent};"></div>
+        <div class="swiper-button-next" style="color:${colors.accent};"></div>
+        <style>
+          .swiper-button-next:after, .swiper-button-prev:after { font-size: 24px !important; font-weight: 800; }
+          .swiper-pagination-bullet { background: #fff !important; opacity: 0.3; }
+          .swiper-pagination-bullet-active { background: ${colors.accent} !important; opacity: 1; box-shadow: 0 0 10px ${colors.accent}; }
+        </style>
+      `
+    }
+  });
+
   /* ── Register all Divi-equivalent module blocks ─────────────────────────── */
+
   registerDiviModules(editor);
 
 }

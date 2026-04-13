@@ -64,6 +64,43 @@ class ZTT_Template_Parser
         $body_node = $bodies->length > 0 ? $bodies->item(0) : null;
 
         if ($body_node) {
+            // ── Strip preloader elements before saving any page content ──────
+            // Preloaders are full-screen overlays (position:fixed, z-index:9999)
+            // that rely on JS to remove them. In a static WordPress context they
+            // would permanently block the page. Remove any matching element now.
+            $preloader_selectors = [
+                '#preloader', '#pre-loader', '#preloader-it', '#page-preloader',
+                '#site-preloader', '#loader', '#loading', '#page-loader',
+                '.preloader', '.pre-loader', '.preloader-wrapper', '.preloader-container',
+                '.loader', '.loading', '.site-loader', '.page-loader',
+                '.preload', '.preload-wrapper', '.preloading',
+            ];
+            foreach ($preloader_selectors as $sel) {
+                $is_id    = $sel[0] === '#';
+                $is_class = $sel[0] === '.';
+                $name     = substr($sel, 1);
+                $nodes_to_remove = [];
+
+                if ($is_id) {
+                    $el = $doc->getElementById($name);
+                    if ($el) $nodes_to_remove[] = $el;
+                } elseif ($is_class) {
+                    foreach ($doc->getElementsByTagName('*') as $el) {
+                        $classes = preg_split('/\s+/', trim($el->getAttribute('class')));
+                        if (in_array($name, $classes, true)) {
+                            $nodes_to_remove[] = $el;
+                        }
+                    }
+                }
+
+                foreach ($nodes_to_remove as $el) {
+                    if ($el->parentNode) {
+                        $el->parentNode->removeChild($el);
+                    }
+                }
+            }
+            // ── End preloader strip ──────────────────────────────────────────
+
             $headers = $body_node->getElementsByTagName('header');
             if ($headers->length > 0) {
                 $header_node = $headers->item(0);
