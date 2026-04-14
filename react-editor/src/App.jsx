@@ -9,13 +9,312 @@ import tabsPlugin from 'grapesjs-tabs';
 import tooltipPlugin from 'grapesjs-tooltip';
 import countdownPlugin from 'grapesjs-component-countdown';
 import typedPlugin from 'grapesjs-typed';
-import sliderPlugin from 'grapesjs-lory-slider';
 import styleBgPlugin from 'grapesjs-style-bg';
 import axios from 'axios';
 import AIChat from './components/AIChat';
 import registerModules from './modules';
 import ThemeColorPanel, { getThemeCssVars } from './components/ThemeColorPanel';
 import './App.css';
+
+const PRELOADER_KEYWORDS = ['preload', 'loader', 'loading', 'spinner', 'pace'];
+const PRELOADER_BASE_SELECTORS = [
+  '#preloader', '#pre-loader', '#preloader-it', '#page-preloader', '#site-preloader',
+  '#loader', '#loading', '#page-loader',
+  '.preloader', '.pre-loader', '.preloader-wrapper', '.preloader-container',
+  '.loader', '.loading', '.site-loader', '.page-loader',
+  '.preload', '.preload-wrapper', '.preloading',
+];
+const PRELOADER_ATTR_SELECTORS = PRELOADER_KEYWORDS.flatMap(k => ([
+  `[id*="${k}" i]`,
+  `[class*="${k}" i]`,
+  `[data-role*="${k}" i]`,
+  `[data-testid*="${k}" i]`,
+  `[aria-label*="${k}" i]`,
+]));
+const PRELOADER_SELECTOR_STRING = [...PRELOADER_BASE_SELECTORS, ...PRELOADER_ATTR_SELECTORS].join(',');
+
+function preloaderCssRule() {
+  return `
+    ${PRELOADER_SELECTOR_STRING} {
+      display: none !important;
+      visibility: hidden !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
+      z-index: -9999 !important;
+    }
+    [data-aos],
+    [class*="fade-"],
+    [class*="reveal"] {
+      opacity: 1 !important;
+      transform: none !important;
+      visibility: visible !important;
+      animation: none !important;
+      transition: none !important;
+    }
+  `;
+}
+
+function removeLikelyPreloaders(cdoc) {
+  if (!cdoc) return 0;
+  let removed = 0;
+  const seen = new Set();
+  const exclusions = ['glightbox-container', 'gloader', 'gjs-'];
+  const nodes = Array.from(cdoc.querySelectorAll('*'));
+  const vw = cdoc.documentElement.clientWidth || cdoc.body.clientWidth || 0;
+  const vh = cdoc.documentElement.clientHeight || cdoc.body.clientHeight || 0;
+
+  const safeRemove = (el) => {
+    if (!el || !el.parentNode || seen.has(el)) return;
+    seen.add(el);
+    el.parentNode.removeChild(el);
+    removed += 1;
+  };
+
+  cdoc.querySelectorAll(PRELOADER_SELECTOR_STRING).forEach(safeRemove);
+
+  nodes.forEach((el) => {
+    if (!el || !el.parentElement || seen.has(el)) return;
+    const id = (el.id || '').toLowerCase();
+    const cls = (typeof el.className === 'string' ? el.className : '').toLowerCase();
+    const attrs = [
+      id,
+      cls,
+      (el.getAttribute('name') || '').toLowerCase(),
+      (el.getAttribute('data-role') || '').toLowerCase(),
+      (el.getAttribute('aria-label') || '').toLowerCase(),
+      (el.getAttribute('data-testid') || '').toLowerCase(),
+    ].join(' ');
+    if (exclusions.some(ex => attrs.includes(ex))) return;
+
+    const s = cdoc.defaultView.getComputedStyle(el);
+    const z = Number.parseInt(s.zIndex, 10);
+    const rect = el.getBoundingClientRect();
+    const coversViewport = vw > 0 && vh > 0 && rect.width >= vw * 0.85 && rect.height >= vh * 0.85;
+    const isPositioned = ['fixed', 'absolute', 'sticky'].includes(s.position);
+    const isVisible = s.display !== 'none' && s.visibility !== 'hidden' && parseFloat(s.opacity || '1') > 0.01;
+    const pointerBlocking = s.pointerEvents !== 'none';
+    const keywordHit = PRELOADER_KEYWORDS.some(k => attrs.includes(k));
+    const highZ = Number.isFinite(z) && z >= 90;
+
+    const looksLikePreloader =
+      (keywordHit && isPositioned && (highZ || coversViewport)) ||
+      (coversViewport && isPositioned && highZ && isVisible && pointerBlocking);
+
+    if (looksLikePreloader) safeRemove(el);
+  });
+
+  if (cdoc.body) {
+    cdoc.body.style.overflow = 'visible';
+    cdoc.body.style.display = 'block';
+  }
+  if (cdoc.documentElement) {
+    cdoc.documentElement.style.overflow = 'visible';
+  }
+  return removed;
+}
+
+function normalizeWpMarkup(html) {
+  return html
+    .replace(/<!--\s*\/?wp:[\s\S]*?-->/g, '')
+    .replace(/<div[^>]*class="[^"]*wp-block-html[^"]*"[^>]*>([\s\S]*?)<\/div>/gi, '$1');
+}
+
+function unlockImportedComponents(editor) {
+  if (!editor) return;
+  const wrapper = editor.getWrapper();
+  if (!wrapper) return;
+
+  const textTags = new Set(['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'span', 'a', 'li', 'button', 'label']);
+  const applyComponentInteractivity = (cmp) => {
+    if (!cmp) return;
+    const tag = (cmp.get('tagName') || '').toLowerCase();
+    const attrs = cmp.getAttributes?.() || {};
+    const cls = String(attrs.class || '').toLowerCase();
+    const id = String(attrs.id || '').toLowerCase();
+    const isPreloaderLike = PRELOADER_KEYWORDS.some(k => cls.includes(k) || id.includes(k));
+    if (isPreloaderLike) return;
+
+    const isImageTag = tag === 'img';
+    cmp.set({
+      selectable: true,
+      hoverable: true,
+      draggable: true,
+      droppable: true,
+      highlightable: true,
+      editable: textTags.has(tag),
+      copyable: true,
+      removable: true,
+      stylable: true,
+      layerable: true,
+      badgable: true,
+      resizable: isImageTag ? { ratioDefault: true } : cmp.get('resizable'),
+    });
+  };
+
+  applyComponentInteractivity(wrapper);
+  wrapper.find('*').forEach(applyComponentInteractivity);
+}
+
+function buildWpHtmlBlock(content) {
+  return `<!-- wp:html -->\n${content}\n<!-- /wp:html -->`;
+}
+
+function buildSavePayload(editor, themeColorsRef) {
+  const html = editor.getHtml();
+  const css = editor.getCss();
+  const { primary, secondary } = themeColorsRef.current;
+  const colorVarsCss = getThemeCssVars(primary, secondary);
+  const merged = `<style>\n${colorVarsCss}\n${css}\n</style>\n${html}`;
+  // Keep content inside a Custom HTML block so WordPress does not auto-format
+  // bootstrap/layout markup after publishing.
+  return buildWpHtmlBlock(merged);
+}
+
+function enhanceModuleInteractivity(cdoc) {
+  if (!cdoc || !cdoc.body) return;
+
+  // 1) Forms: prevent dead submits and provide basic UX.
+  cdoc.querySelectorAll('form').forEach((form) => {
+    if (form.dataset.zttFormBound === '1') return;
+    form.dataset.zttFormBound = '1';
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const required = form.querySelectorAll('input[required], textarea[required], select[required]');
+      let invalid = false;
+      required.forEach((el) => {
+        if (!el.value || !String(el.value).trim()) invalid = true;
+      });
+      const msg = cdoc.createElement('div');
+      msg.textContent = invalid ? 'Please fill all required fields.' : 'Demo submit captured successfully.';
+      msg.style.cssText = 'margin-top:10px;padding:8px 10px;border-radius:8px;font-size:12px;background:rgba(124,58,237,.15);color:#c4b5fd;border:1px solid rgba(124,58,237,.35);';
+      form.appendChild(msg);
+      setTimeout(() => msg.remove(), 2000);
+    });
+  });
+
+  // 2) Details-based modules (toggle/accordion/faq): keep +/- state synced.
+  cdoc.querySelectorAll('details').forEach((det) => {
+    if (det.dataset.zttDetailsBound === '1') return;
+    det.dataset.zttDetailsBound = '1';
+    const summary = det.querySelector('summary');
+    if (!summary) return;
+
+    const syncIcon = () => {
+      let icon = summary.querySelector('[data-ztt-icon]');
+      if (!icon) {
+        const spans = summary.querySelectorAll('span');
+        icon = spans.length ? spans[spans.length - 1] : null;
+        if (icon) icon.setAttribute('data-ztt-icon', '1');
+      }
+      if (icon) icon.textContent = det.open ? '−' : '+';
+    };
+
+    det.addEventListener('toggle', syncIcon);
+    syncIcon();
+  });
+
+  // 3) Tabs module (data-ztt-tab-btn / data-ztt-tab-panel).
+  cdoc.querySelectorAll('[data-ztt-tab-btn]').forEach((btn) => {
+    if (btn.dataset.zttTabBound === '1') return;
+    btn.dataset.zttTabBound = '1';
+    btn.addEventListener('click', () => {
+      const id = btn.getAttribute('data-ztt-tab-btn');
+      if (!id) return;
+      const root = btn.closest('section, div') || cdoc.body;
+      root.querySelectorAll('[data-ztt-tab-btn]').forEach((b) => {
+        const active = b.getAttribute('data-ztt-tab-btn') === id;
+        b.style.background = active ? 'linear-gradient(135deg,#7c3aed 0%,#06b6d4 100%)' : 'transparent';
+        b.style.color = active ? '#fff' : '#475569';
+        b.style.boxShadow = active ? '0 10px 20px rgba(124,58,237,.3)' : 'none';
+      });
+      root.querySelectorAll('[data-ztt-tab-panel]').forEach((panel) => {
+        panel.style.display = panel.getAttribute('data-ztt-tab-panel') === id ? 'block' : 'none';
+      });
+    });
+  });
+
+  // 4) Counters: animate obvious numeric stat values once.
+  cdoc.querySelectorAll('div, span').forEach((el) => {
+    if (el.dataset.zttCountDone === '1') return;
+    const txt = (el.textContent || '').trim();
+    if (!txt || txt.length > 12) return;
+    const match = txt.match(/^([<>]?\d+)([KMB]?)(\+?%?|ms)?$/i);
+    if (!match) return;
+
+    const [, n, scale, suffix = ''] = match;
+    const target = parseInt(n.replace(/[<>]/g, ''), 10);
+    if (!Number.isFinite(target) || target < 2) return;
+    el.dataset.zttCountDone = '1';
+
+    let current = 0;
+    const steps = 24;
+    const step = Math.max(1, Math.floor(target / steps));
+    const t = cdoc.defaultView.setInterval(() => {
+      current += step;
+      if (current >= target) {
+        current = target;
+        cdoc.defaultView.clearInterval(t);
+      }
+      const prefix = txt.startsWith('<') ? '<' : (txt.startsWith('>') ? '>' : '');
+      el.textContent = `${prefix}${current}${scale || ''}${suffix || ''}`;
+    }, 35);
+  });
+
+  // 5) Portfolio filter: activate button-based filtering when block exists.
+  cdoc.querySelectorAll('section').forEach((section) => {
+    const buttons = section.querySelectorAll('button');
+    const cards = section.querySelectorAll('div[style*="Project"][style*="uppercase"]');
+    if (buttons.length < 3 || cards.length < 4) return;
+    if (section.dataset.zttFilterBound === '1') return;
+    section.dataset.zttFilterBound = '1';
+
+    const categories = ['all', 'web design', 'branding', 'mobile', 'motion'];
+    const cardNodes = Array.from(cards).map(node => node.closest('div[style*="border-radius:18px"]') || node.parentElement).filter(Boolean);
+    cardNodes.forEach((card, i) => {
+      card.dataset.zttCat = categories[(i % 4) + 1];
+    });
+
+    buttons.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const label = (btn.textContent || '').trim().toLowerCase();
+        const filter = label || 'all';
+        buttons.forEach((b) => {
+          b.style.background = b === btn ? 'rgba(129,140,248,.2)' : 'transparent';
+          b.style.color = b === btn ? '#7c3aed' : '#64748b';
+        });
+        cardNodes.forEach((card) => {
+          card.style.display = filter === 'all' || card.dataset.zttCat === filter ? 'block' : 'none';
+        });
+      });
+    });
+  });
+
+  // 6) Countdown: decrement obvious 4-slot countdown cards.
+  cdoc.querySelectorAll('section').forEach((section) => {
+    if (section.dataset.zttCountdownBound === '1') return;
+    const heading = (section.textContent || '').toLowerCase();
+    if (!heading.includes('countdown')) return;
+    const values = section.querySelectorAll('div');
+    const slots = Array.from(values).filter((v) => /^\d{2}$/.test((v.textContent || '').trim())).slice(0, 4);
+    if (slots.length !== 4) return;
+    section.dataset.zttCountdownBound = '1';
+
+    let total = (parseInt(slots[0].textContent, 10) * 86400)
+      + (parseInt(slots[1].textContent, 10) * 3600)
+      + (parseInt(slots[2].textContent, 10) * 60)
+      + parseInt(slots[3].textContent, 10);
+    const tick = () => {
+      if (total <= 0) return;
+      total -= 1;
+      const d = Math.floor(total / 86400);
+      const h = Math.floor((total % 86400) / 3600);
+      const m = Math.floor((total % 3600) / 60);
+      const s = total % 60;
+      [d, h, m, s].forEach((n, i) => { slots[i].textContent = String(n).padStart(2, '0'); });
+    };
+    cdoc.defaultView.setInterval(tick, 1000);
+  });
+}
 
 /* ── Loading Screen ─────────────────────────────────────────────────────── */
 function LoadingScreen() {
@@ -68,19 +367,20 @@ function LoadingScreen() {
 
 /* ── Premium SVG Icons ── */
 const icons = {
-  undo: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13"/></svg>,
-  redo: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 019-9 9 9 0 016 2.3l3 2.7"/></svg>,
-  desktop: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>,
-  tablet: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>,
-  mobile: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>,
-  preview: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>,
-  fullscreen: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"/></svg>,
-  clear: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>,
-  save: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>,
-  check: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>,
-  logo: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>,
-  moon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>,
-  sun: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+  undo: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7v6h6" /><path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13" /></svg>,
+  redo: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 7v6h-6" /><path d="M3 17a9 9 0 019-9 9 9 0 016 2.3l3 2.7" /></svg>,
+  desktop: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2" /><line x1="8" y1="21" x2="16" y2="21" /><line x1="12" y1="17" x2="12" y2="21" /></svg>,
+  tablet: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2" /><line x1="12" y1="18" x2="12.01" y2="18" /></svg>,
+  mobile: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2" /><line x1="12" y1="18" x2="12.01" y2="18" /></svg>,
+  preview: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>,
+  fullscreen: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3" /></svg>,
+  clear: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" /></svg>,
+  save: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z" /><polyline points="17 21 17 13 7 13 7 21" /><polyline points="7 3 7 8 15 8" /></svg>,
+  check: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>,
+  logo: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" /></svg>,
+  moon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" /></svg>,
+  sun: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5" /><line x1="12" y1="1" x2="12" y2="3" /><line x1="12" y1="21" x2="12" y2="23" /><line x1="4.22" y1="4.22" x2="5.64" y2="5.64" /><line x1="18.36" y1="18.36" x2="19.78" y2="19.78" /><line x1="1" y1="12" x2="3" y2="12" /><line x1="21" y1="12" x2="23" y2="12" /><line x1="4.22" y1="19.78" x2="5.64" y2="18.36" /><line x1="18.36" y1="5.64" x2="19.78" y2="4.22" /></svg>,
+  zap: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" /></svg>
 };
 
 /* ── Top Toolbar ────────────────────────────────────────────────────────── */
@@ -91,8 +391,8 @@ function TopBar({ editorInstance, themeColorsRef }) {
 
   const DEVICES = [
     { id: 'desktop', label: 'Desktop', icon: icons.desktop },
-    { id: 'tablet',  label: 'Tablet',  icon: icons.tablet },
-    { id: 'mobile-portrait', label: 'Mobile',  icon: icons.mobile },
+    { id: 'tablet', label: 'Tablet', icon: icons.tablet },
+    { id: 'mobile-portrait', label: 'Mobile', icon: icons.mobile },
   ];
 
   const switchDevice = (deviceId) => {
@@ -106,27 +406,23 @@ function TopBar({ editorInstance, themeColorsRef }) {
     const newTheme = uiTheme === 'dark' ? 'light' : 'dark';
     setUiTheme(newTheme);
     document.documentElement.setAttribute('data-theme', newTheme);
-    
+
     // Attempt to sync inner iframe if it has a html/body
     try {
       const iframeDoc = editorInstance?.Canvas.getDocument();
       if (iframeDoc) iframeDoc.documentElement.setAttribute('data-theme', newTheme);
-    } catch(e) {}
+    } catch (e) { }
   };
 
   const handleSave = () => {
     if (!editorInstance) return;
-    const html = editorInstance.getHtml();
-    const css  = editorInstance.getCss();
-    const { primary, secondary } = themeColorsRef.current;
-    const colorVarsCss = getThemeCssVars(primary, secondary);
-    const finalPayload = `<style>\n${colorVarsCss}\n${css}\n</style>\n${html}`;
+    const finalPayload = buildSavePayload(editorInstance, themeColorsRef);
 
     axios.post(`${window.zttData.apiUrl}${editorInstance._postId || ''}`, {
       content: finalPayload
     }, { headers: { 'X-WP-Nonce': window.zttData.nonce } })
-    .then(() => { setSaved(true); setTimeout(() => setSaved(false), 2500); })
-    .catch(err => { console.error(err); alert('Save failed.'); });
+      .then(() => { setSaved(true); setTimeout(() => setSaved(false), 2500); })
+      .catch(err => { console.error(err); alert('Save failed.'); });
   };
 
   const handleUndo = () => editorInstance?.runCommand('core:undo');
@@ -136,6 +432,18 @@ function TopBar({ editorInstance, themeColorsRef }) {
   const handleClearCanvas = () => {
     if (window.confirm('Clear all canvas content?')) {
       editorInstance?.setComponents('');
+    }
+  };
+
+  const handleNukeLoader = () => {
+    if (!editorInstance) return;
+    try {
+      const doc = editorInstance.Canvas.getDocument();
+      if (!doc) return;
+      const purged = removeLikelyPreloaders(doc);
+      alert(`Removed ${purged} blocking preloader element(s).`);
+    } catch (e) {
+      console.error(e);
     }
   };
 
@@ -187,8 +495,8 @@ function TopBar({ editorInstance, themeColorsRef }) {
       {/* ── History controls ── */}
       <div style={{ display: 'flex', gap: 4 }}>
         {[
-          { icon: icons.undo, title: 'Undo',   action: handleUndo },
-          { icon: icons.redo, title: 'Redo',   action: handleRedo },
+          { icon: icons.undo, title: 'Undo', action: handleUndo },
+          { icon: icons.redo, title: 'Redo', action: handleRedo },
         ].map(({ icon, title, action }) => (
           <button key={title} onClick={action} title={title} style={topBtnStyle()}>
             <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{icon}</span>
@@ -232,9 +540,10 @@ function TopBar({ editorInstance, themeColorsRef }) {
       {/* ── Preview + Fullscreen ── */}
       <div style={{ display: 'flex', gap: 4 }}>
         {[
-          { icon: icons.preview, title: 'Preview',    action: handlePreview },
-          { icon: icons.fullscreen,  title: 'Fullscreen', action: handleFullscreen },
+          { icon: icons.preview, title: 'Preview', action: handlePreview },
+          { icon: icons.fullscreen, title: 'Fullscreen', action: handleFullscreen },
           { icon: icons.clear, title: 'Clear Canvas', action: handleClearCanvas },
+          { icon: icons.zap, title: 'Fix: Nuke Preloader', action: handleNukeLoader },
         ].map(({ icon, title, action }) => (
           <button key={title} onClick={action} title={title} style={topBtnStyle()}>
             <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{icon}</span>
@@ -266,8 +575,8 @@ function TopBar({ editorInstance, themeColorsRef }) {
           borderRadius: 8,
           color: '#fff', fontWeight: 600, fontSize: 13.5,
           fontFamily: 'var(--font-ui)', cursor: 'pointer',
-          boxShadow: saved 
-            ? '0 0 16px rgba(5,150,105,.4), inset 0 1px 3px rgba(255,255,255,.2)' 
+          boxShadow: saved
+            ? '0 0 16px rgba(5,150,105,.4), inset 0 1px 3px rgba(255,255,255,.2)'
             : '0 0 16px rgba(124,58,237,.4), inset 0 1px 3px rgba(255,255,255,.2)',
           transition: 'all .25s ease',
           flexShrink: 0,
@@ -308,6 +617,11 @@ function App({ postId }) {
   const postIdRef = useRef(postId);
 
   useEffect(() => {
+    const fetchTimer = setTimeout(() => {
+      setLoading(false);
+      console.warn('React loading screen timed out - forcing visibility.');
+    }, 12000);
+
     const fetchContent = axios.get(`${window.zttData.apiUrl}${postId}?context=edit`, {
       headers: { 'X-WP-Nonce': window.zttData.nonce }
     });
@@ -319,12 +633,18 @@ function App({ postId }) {
         const parser = new DOMParser();
         const doc = parser.parseFromString(frontendRes.data, 'text/html');
         const cssLinks = Array.from(doc.querySelectorAll('link[rel="stylesheet"]')).map(l => l.href);
+        // Add Swiper CSS and force-hide preloaders
+        cssLinks.push('https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css');
+        cssLinks.push('data:text/css,' + encodeURIComponent(preloaderCssRule()));
         initEditor(htmlContent, cssLinks);
       })
       .catch(error => {
         console.error('Error fetching page data', error);
+        setLoading(false); // Ensure loader is hidden even on error
         alert('Failed to load page content or live stylesheets.');
       });
+
+    return () => clearTimeout(fetchTimer);
   }, [postId]);
 
   const initEditor = (htmlContent, cssLinks) => {
@@ -336,6 +656,9 @@ function App({ postId }) {
         height: '100%',
         width: '100%',
         storageManager: false,
+        modal: {
+          appendTo: document.body,    // ← escape overflow:hidden stacking context
+        },
         panels: {
           defaults: [
             {
@@ -378,15 +701,15 @@ function App({ postId }) {
           appendTo: 'parent',
           offset: { top: 26, left: -166 },
           palette: [
-            ['#000000','#333333','#555555','#777777','#999999','#AAAAAA','#CCCCCC','#EEEEEE','#FFFFFF'],
-            ['#F44336','#E91E63','#9C27B0','#673AB7','#3F51B5','#2196F3','#03A9F4','#00BCD4','#009688'],
-            ['#4CAF50','#8BC34A','#CDDC39','#FFEB3B','#FFC107','#FF9800','#FF5722','#795548','#607D8B'],
+            ['#000000', '#333333', '#555555', '#777777', '#999999', '#AAAAAA', '#CCCCCC', '#EEEEEE', '#FFFFFF'],
+            ['#F44336', '#E91E63', '#9C27B0', '#673AB7', '#3F51B5', '#2196F3', '#03A9F4', '#00BCD4', '#009688'],
+            ['#4CAF50', '#8BC34A', '#CDDC39', '#FFEB3B', '#FFC107', '#FF9800', '#FF5722', '#795548', '#607D8B'],
           ],
         },
         plugins: [
           webpagePreset, blocksBasic, formsPlugin, flexboxPlugin,
           customCodePlugin, tabsPlugin, tooltipPlugin, countdownPlugin,
-          typedPlugin, sliderPlugin, styleBgPlugin,
+          typedPlugin, styleBgPlugin,
         ],
         pluginsOpts: {
           [webpagePreset]: {},
@@ -398,15 +721,78 @@ function App({ postId }) {
           [tooltipPlugin]: {},
           [countdownPlugin]: {},
           [typedPlugin]: {},
-          [sliderPlugin]: {},
           [styleBgPlugin]: {},
         },
-        canvas: { styles: cssLinks },
+        canvas: { 
+          styles: cssLinks,
+          scripts: [
+            'https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js'
+          ]
+        },
+      });
+
+      editor.on('load', () => {
+        const doc = editor.Canvas.getDocument();
+        if (doc) {
+          const style = doc.createElement('style');
+          style.textContent = preloaderCssRule();
+          doc.head.appendChild(style);
+        }
       });
 
       editor._postId = postId;
-      editor.setComponents(htmlContent);
+
+      const stripPreloaders = (html) => {
+        const p = new DOMParser();
+        const d = p.parseFromString(normalizeWpMarkup(html), 'text/html');
+        d.querySelectorAll(PRELOADER_SELECTOR_STRING).forEach(el => el.remove());
+        d.querySelectorAll('[data-aos], [data-aos-delay], [data-aos-duration], [data-aos-offset], [data-aos-anchor], [data-aos-anchor-placement], [data-aos-easing], [data-aos-once]').forEach(el => {
+          [
+            'data-aos',
+            'data-aos-delay',
+            'data-aos-duration',
+            'data-aos-offset',
+            'data-aos-anchor',
+            'data-aos-anchor-placement',
+            'data-aos-easing',
+            'data-aos-once',
+          ].forEach(attr => el.removeAttribute(attr));
+          el.classList.remove('aos-init', 'aos-animate');
+        });
+        return d.body.innerHTML;
+      };
+
+      editor.setComponents(stripPreloaders(htmlContent));
+      unlockImportedComponents(editor);
       setEditorInstance(editor);
+
+      const nukePreloadersInCanvas = (cdoc) => removeLikelyPreloaders(cdoc);
+
+      editor.on('load', () => {
+        nukePreloadersInCanvas(editor.Canvas.getDocument());
+        unlockImportedComponents(editor);
+        enhanceModuleInteractivity(editor.Canvas.getDocument());
+      });
+
+      editor.on('load', () => {
+        [300, 1200, 2500].forEach(delay => {
+          setTimeout(() => {
+            const cdoc = editor.Canvas.getDocument();
+            nukePreloadersInCanvas(cdoc);
+            enhanceModuleInteractivity(cdoc);
+          }, delay);
+        });
+
+        const cdoc = editor.Canvas.getDocument();
+        if (!cdoc || !cdoc.body || !cdoc.defaultView?.MutationObserver) return;
+
+        const observer = new cdoc.defaultView.MutationObserver(() => {
+          nukePreloadersInCanvas(cdoc);
+          enhanceModuleInteractivity(cdoc);
+        });
+        observer.observe(cdoc.body, { childList: true, subtree: true });
+        setTimeout(() => observer.disconnect(), 5000);
+      });
 
       // ── Force premium dark theme on native GrapesJS managers ─────────────
       // GrapesJS dynamically applies `gjs-one-bg`, `gjs-two-bg`, etc. via JS.
@@ -503,11 +889,11 @@ function App({ postId }) {
       // ──────────────────────────────────────────────────────────────────────
 
       registerModules(editor);
-      
+
       // ── FORCE REMOVAL OF REPEATED TOOLS (Native Panels) ─────────────────
       // We explicitly remove the native panels that repeat TopBar functionality.
       ['options', 'commands', 'devices-c'].forEach(p => {
-        try { editor.Panels.removePanel(p); } catch(e) {}
+        try { editor.Panels.removePanel(p); } catch (e) { }
       });
       // ────────────────────────────────────────────────────────────────────
 
@@ -547,7 +933,7 @@ function App({ postId }) {
         // If the icon doesn't have our signature background plate, wrap it or replace it.
         if (!media.includes('background:rgba(124,58,237,0.08)') && !media.includes('background: rgba(124, 58, 237, 0.08)')) {
           let path = '<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>';
-          
+
           if (id.includes('text') || id.includes('quote')) {
             path = '<path d="M4 7h16M4 12h16M4 17h10"/>';
           } else if (id.includes('image') || id.includes('video') || id.includes('gallery')) {
@@ -591,17 +977,13 @@ function App({ postId }) {
       editor.Commands.add('save-wp', {
         run(editor, sender) {
           sender && sender.set('active', 0);
-          const html = editor.getHtml();
-          const css  = editor.getCss();
-          const { primary, secondary } = themeColorsRef.current;
-          const colorVarsCss = getThemeCssVars(primary, secondary);
-          const finalPayload = `<style>\n${colorVarsCss}\n${css}\n</style>\n${html}`;
+          const finalPayload = buildSavePayload(editor, themeColorsRef);
 
           axios.post(`${window.zttData.apiUrl}${postId}`, { content: finalPayload }, {
             headers: { 'X-WP-Nonce': window.zttData.nonce }
           })
-          .then(() => alert('Saved to WordPress successfully!'))
-          .catch(err => { console.error(err); alert('Failed to save.'); });
+            .then(() => alert('Saved to WordPress successfully!'))
+            .catch(err => { console.error(err); alert('Failed to save.'); });
         },
       });
 
@@ -629,13 +1011,68 @@ function App({ postId }) {
         },
       });
 
+      // Replace selected <img> source from asset manager
+      editor.Commands.add('change-image-src', {
+        run(editor) {
+          const selected = editor.getSelected();
+          if (!selected) return;
+          const attrs = selected.getAttributes?.() || {};
+          const tagName = (selected.get('tagName') || '').toLowerCase();
+          const isImageLike = selected.is('image') || tagName === 'img' || !!attrs.src;
+          if (!isImageLike) return;
+
+          editor.runCommand('open-assets', {
+            types: ['image'],
+            accept: 'image/*',
+            onSelect(asset) {
+              const src = asset?.get ? asset.get('src') : asset?.src;
+              if (!src) return;
+              selected.addAttributes({ src });
+              editor.AssetManager.close();
+            },
+          });
+        },
+      });
+
       editor.on('component:selected', (model) => {
-        if (model.is('image') || model.is('textnode')) return;
+        const attrs = model.getAttributes?.() || {};
+        const tagName = (model.get('tagName') || '').toLowerCase();
+        const isImageLike = model.is('image') || tagName === 'img' || !!attrs.src;
+        if (model.is('textnode')) return;
+
+        if (isImageLike) {
+          const tb = model.get('toolbar') || [];
+          if (!tb.some(t => t.command === 'change-image-src')) {
+            tb.unshift({
+              attributes: { class: 'fa fa-image', title: 'Replace Image' },
+              command: 'change-image-src'
+            });
+            model.set('toolbar', tb);
+          }
+          return;
+        }
+
         const tb = model.get('toolbar') || [];
         if (!tb.some(t => t.command === 'change-bg-image')) {
           tb.unshift({ attributes: { class: 'fa fa-picture-o', title: 'Change Background Image' }, command: 'change-bg-image' });
           model.set('toolbar', tb);
         }
+      });
+
+      // Fast path UX: double-click an image to replace it.
+      editor.on('component:dblclick', (model) => {
+        const attrs = model.getAttributes?.() || {};
+        const tagName = (model.get('tagName') || '').toLowerCase();
+        const isImageLike = model.is('image') || tagName === 'img' || !!attrs.src;
+        if (!isImageLike) return;
+        editor.select(model);
+        editor.runCommand('change-image-src');
+      });
+
+      // Guarantee all newly dropped blocks/modules are editable in the same way
+      // as imported content (prevents modules from feeling "locked" inconsistently).
+      editor.on('component:add', () => {
+        unlockImportedComponents(editor);
       });
 
     }, 100);

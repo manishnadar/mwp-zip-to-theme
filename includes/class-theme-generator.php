@@ -47,7 +47,8 @@ class ZTT_Theme_Generator
         ];
 
         file_put_contents($theme_path . '/style.css', $this->style($opt));
-        file_put_contents($theme_path . '/functions.php', $this->functions());
+        $body_scripts = isset($main['body_scripts']) ? $main['body_scripts'] : [];
+        file_put_contents($theme_path . '/functions.php', $this->functions($body_scripts));
         
         $head = isset($main['head']) ? $main['head'] : '';
         $header_str = isset($main['header']) ? $main['header'] : '';
@@ -126,8 +127,27 @@ class ZTT_Theme_Generator
         return "/*\nTheme Name: {$opt['theme_name']}\nAuthor: {$opt['author']}\n*/";
     }
 
-    private function functions()
+    private function functions($body_scripts = [])
     {
+        // Build wp_enqueue_script calls from scripts collected in <body>
+        $enqueue_js = '';
+        $prev_handle = '';
+        foreach ($body_scripts as $i => $src) {
+            // Only enqueue local scripts (ZTT_THEME_URI_PLACEHOLDER paths)
+            if (strpos($src, 'ZTT_THEME_URI_PLACEHOLDER') === false) continue;
+
+            // Derive a safe handle from the filename
+            $filename = pathinfo(parse_url($src, PHP_URL_PATH), PATHINFO_FILENAME);
+            $handle   = 'ztt-' . preg_replace('/[^a-z0-9]/', '-', strtolower($filename));
+
+            // Convert placeholder to PHP expression
+            $php_src = str_replace('ZTT_THEME_URI_PLACEHOLDER', "' . get_template_directory_uri() . '", $src);
+
+            $deps = $prev_handle ? "['{$prev_handle}']" : '[]';
+            $enqueue_js .= "    wp_enqueue_script('{$handle}', '{$php_src}', {$deps}, false, true);\n";
+            $prev_handle = $handle;
+        }
+
         return "<?php
 add_action('after_setup_theme', function() {
     add_theme_support('title-tag');
@@ -139,7 +159,7 @@ add_action('after_setup_theme', function() {
 
 add_action('wp_enqueue_scripts', function(){
     wp_enqueue_style('main', get_stylesheet_uri());
-});
+{$enqueue_js}});
 
 // ZTT: Scroll-reveal engine.
 // The imported HTML uses .reveal or .fade-* elements that start at opacity:0 and

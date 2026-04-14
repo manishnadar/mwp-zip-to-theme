@@ -88,7 +88,30 @@ export default function registerModules(editor) {
   `;
 
   /* SVG Icons for Toolbox */
-  const makeSvg = (path) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="gjs-block-svg"><path d="${path}"/></svg>`;
+  const makeSvg = (path) => `
+    <span class="ztt-block-thumb-wrap">
+      <svg viewBox="0 0 120 84" class="gjs-block-svg ztt-block-thumb-svg" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Module preview">
+        <defs>
+          <linearGradient id="zttThumbBg" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#11172a"/>
+            <stop offset="100%" stop-color="#0b1220"/>
+          </linearGradient>
+          <linearGradient id="zttThumbCard" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#1b2438"/>
+            <stop offset="100%" stop-color="#121a2a"/>
+          </linearGradient>
+        </defs>
+        <rect x="1" y="1" width="118" height="82" rx="12" fill="url(#zttThumbBg)" stroke="rgba(124,58,237,0.45)"/>
+        <rect x="9" y="10" width="102" height="12" rx="6" fill="rgba(255,255,255,0.08)"/>
+        <rect x="9" y="27" width="52" height="48" rx="9" fill="url(#zttThumbCard)" stroke="rgba(255,255,255,0.08)"/>
+        <rect x="66" y="27" width="45" height="21" rx="8" fill="rgba(6,182,212,0.16)" stroke="rgba(6,182,212,0.35)"/>
+        <rect x="66" y="54" width="45" height="21" rx="8" fill="rgba(124,58,237,0.16)" stroke="rgba(124,58,237,0.35)"/>
+        <g transform="translate(35,51)" stroke="#c4b5fd" stroke-width="1.9" fill="none" stroke-linecap="round" stroke-linejoin="round">
+          <path d="${path}"/>
+        </g>
+      </svg>
+    </span>
+  `;
 
 
   /* ══════════════════════════════════════════════════════════
@@ -486,7 +509,101 @@ export default function registerModules(editor) {
     `
   });
 
+  /* ══════════════════════════════════════════════════════════
+   * PREMIUM SWIPER SLIDER MODULE
+   * ══════════════════════════════════════════════════════════ */
+  
+  // 1. Component Definitions
+  editor.DomComponents.addType('swiper-container', {
+    model: {
+      defaults: {
+        tagName: 'div',
+        attributes: { class: 'swiper premium-slider' },
+        traits: [
+          { type: 'checkbox', name: 'loop', label: 'Loop', changeProp: 1 },
+          { type: 'number', name: 'delay', label: 'Autoplay Delay', changeProp: 1 },
+          { type: 'select', name: 'effect', label: 'Effect', options: [
+            { id: 'slide', name: 'Slide' },
+            { id: 'fade', name: 'Fade' },
+            { id: 'cube', name: 'Cube' },
+            { id: 'coverflow', name: 'Coverflow' },
+          ], changeProp: 1 },
+        ],
+        // Sync properties to attributes for the script to read
+        'change:loop': (m, v) => m.addAttributes({ 'data-loop': v }),
+        'change:delay': (m, v) => m.addAttributes({ 'data-delay': v }),
+        'change:effect': (m, v) => m.addAttributes({ 'data-effect': v }),
+        script: function() {
+          const el = this;
+          const options = {
+            loop: el.getAttribute('data-loop') === 'true',
+            autoplay: { delay: parseInt(el.getAttribute('data-delay')) || 5000 },
+            effect: el.getAttribute('data-effect') || 'slide',
+            pagination: { el: el.querySelector('.swiper-pagination'), clickable: true },
+            navigation: { 
+              nextEl: el.querySelector('.swiper-button-next'), 
+              prevEl: el.querySelector('.swiper-button-prev') 
+            },
+          };
+          const init = () => {
+            if (el.swiper) el.swiper.destroy();
+            if (typeof Swiper !== 'undefined') new Swiper(el, options);
+          };
+          if (typeof Swiper === 'undefined') {
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js';
+            script.onload = init;
+            document.head.appendChild(script);
+          } else {
+            init();
+          }
+        },
+      },
+    },
+  });
+
+  // 2. Add the Block
+  bm.add('premium-slider', {
+    label: 'Slider (Swiper)',
+    category: cats.interactive,
+    media: makeSvg('M1 12h4M19 12h4M7 5l10 7-10 7V5z'),
+    content: {
+      type: 'swiper-container',
+      content: `
+        <div class="swiper-wrapper">
+          <div class="swiper-slide" style="height:400px; display:flex; align-items:center; justify-content:center; background:rgba(124,58,237,0.1); border-radius:24px; border:1px solid ${colors.border}; backdrop-filter:blur(10px);">
+            <div style="text-align:center;">
+              <h2 style="font-size:48px; font-weight:800; margin-bottom:10px;">Slide One</h2>
+              <p style="color:${colors.textMuted};">Premium Glassmorphic Slide Content</p>
+            </div>
+          </div>
+          <div class="swiper-slide" style="height:400px; display:flex; align-items:center; justify-content:center; background:rgba(6,182,212,0.1); border-radius:24px; border:1px solid ${colors.border}; backdrop-filter:blur(10px);">
+            <div style="text-align:center;">
+              <h2 style="font-size:48px; font-weight:800; margin-bottom:10px;">Slide Two</h2>
+              <p style="color:${colors.textMuted};">Fully interactive and responsive</p>
+            </div>
+          </div>
+          <div class="swiper-slide" style="height:400px; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.03); border-radius:24px; border:1px solid ${colors.border}; backdrop-filter:blur(10px);">
+            <div style="text-align:center;">
+              <h2 style="font-size:48px; font-weight:800; margin-bottom:10px;">Slide Three</h2>
+              <p style="color:${colors.textMuted};">Unlimited possibilities</p>
+            </div>
+          </div>
+        </div>
+        <div class="swiper-pagination"></div>
+        <div class="swiper-button-prev" style="color:${colors.accent};"></div>
+        <div class="swiper-button-next" style="color:${colors.accent};"></div>
+        <style>
+          .swiper-button-next:after, .swiper-button-prev:after { font-size: 24px !important; font-weight: 800; }
+          .swiper-pagination-bullet { background: #fff !important; opacity: 0.3; }
+          .swiper-pagination-bullet-active { background: ${colors.accent} !important; opacity: 1; box-shadow: 0 0 10px ${colors.accent}; }
+        </style>
+      `
+    }
+  });
+
   /* ── Register all Divi-equivalent module blocks ─────────────────────────── */
+
   registerDiviModules(editor);
 
 }

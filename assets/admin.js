@@ -34,8 +34,14 @@ jQuery(function () {
     dropzone.addEventListener('drop', function (e) {
         const files = e.dataTransfer.files;
         if (files.length) {
+            const file = files[0];
+            if (!file.name.toLowerCase().endsWith('.zip')) {
+                alert('Only ZIP files are allowed.');
+                fileInput.value = '';
+                return;
+            }
             fileInput.files = files;
-            showFile(files[0]);
+            showFile(file);
         }
     });
 
@@ -49,7 +55,15 @@ jQuery(function () {
 
     // ── File input change ─────────────────────────────────────────────────
     fileInput.addEventListener('change', function () {
-        if (this.files.length) showFile(this.files[0]);
+        if (this.files.length) {
+            const file = this.files[0];
+            if (!file.name.toLowerCase().endsWith('.zip')) {
+                alert('Only ZIP files are allowed.');
+                this.value = '';
+                return;
+            }
+            showFile(file);
+        }
     });
 
     // ── Clear button ──────────────────────────────────────────────────────

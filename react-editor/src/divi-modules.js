@@ -28,14 +28,28 @@ export default function registerDiviModules(editor) {
 
   /* ─── Small helpers ────────────────────────────────────────────────────── */
   const svg  = (d, extra='') =>
-    `<div style="display:flex;align-items:center;justify-content:center;
-      width:46px;height:46px;background:rgba(124,58,237,0.08);border-radius:14px;
-      margin:0 auto 6px;transition:all .3s;">
-      <svg viewBox="0 0 24 24" fill="none" stroke="${c.accent}" stroke-width="1.5"
-        stroke-linecap="round" stroke-linejoin="round" style="width:22px;height:22px;" ${extra}>
-        <path d="${d}"/>
+    `<span class="ztt-block-thumb-wrap">
+      <svg viewBox="0 0 120 84" class="gjs-block-svg ztt-block-thumb-svg" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Module preview">
+        <defs>
+          <linearGradient id="zttDiviThumbBg" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#11172a"/>
+            <stop offset="100%" stop-color="#0b1220"/>
+          </linearGradient>
+          <linearGradient id="zttDiviThumbCard" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#1b2438"/>
+            <stop offset="100%" stop-color="#121a2a"/>
+          </linearGradient>
+        </defs>
+        <rect x="1" y="1" width="118" height="82" rx="12" fill="url(#zttDiviThumbBg)" stroke="rgba(124,58,237,0.45)"/>
+        <rect x="9" y="10" width="102" height="12" rx="6" fill="rgba(255,255,255,0.08)"/>
+        <rect x="9" y="27" width="52" height="48" rx="9" fill="url(#zttDiviThumbCard)" stroke="rgba(255,255,255,0.08)"/>
+        <rect x="66" y="27" width="45" height="21" rx="8" fill="rgba(6,182,212,0.16)" stroke="rgba(6,182,212,0.35)"/>
+        <rect x="66" y="54" width="45" height="21" rx="8" fill="rgba(124,58,237,0.16)" stroke="rgba(124,58,237,0.35)"/>
+        <g transform="translate(35,51)" stroke="${c.accent}" stroke-width="1.75" fill="none" stroke-linecap="round" stroke-linejoin="round" ${extra}>
+          <path d="${d}"/>
+        </g>
       </svg>
-    </div>`;
+    </span>`;
 
   const sec  = (inner, py='100px') =>
     `<section style="width:100%;background:${c.bg};padding:${py} 24px;
@@ -94,6 +108,48 @@ export default function registerDiviModules(editor) {
     nav:         'Divi — Navigation',
     fullwidth:   'Divi — Fullwidth',
   };
+
+  // Interactive tabs module with real switching behavior in canvas/runtime.
+  editor.DomComponents.addType('divi-tabs-module', {
+    model: {
+      defaults: {
+        script: function () {
+          const root = this;
+          const tabButtons = root.querySelectorAll('[data-ztt-tab-btn]');
+          const tabPanels = root.querySelectorAll('[data-ztt-tab-panel]');
+
+          const activateTab = (tabId) => {
+            tabButtons.forEach((btn) => {
+              const active = btn.getAttribute('data-ztt-tab-btn') === tabId;
+              btn.setAttribute('aria-selected', active ? 'true' : 'false');
+              btn.style.background = active
+                ? 'linear-gradient(135deg,#7c3aed 0%,#06b6d4 100%)'
+                : 'transparent';
+              btn.style.color = active ? '#fff' : '#475569';
+              btn.style.boxShadow = active ? '0 10px 20px rgba(124,58,237,.3)' : 'none';
+            });
+
+            tabPanels.forEach((panel) => {
+              const active = panel.getAttribute('data-ztt-tab-panel') === tabId;
+              panel.style.display = active ? 'block' : 'none';
+            });
+          };
+
+          tabButtons.forEach((btn) => {
+            btn.addEventListener('click', () => {
+              const tabId = btn.getAttribute('data-ztt-tab-btn');
+              if (!tabId) return;
+              activateTab(tabId);
+            });
+          });
+
+          if (tabButtons.length > 0) {
+            activateTab(tabButtons[0].getAttribute('data-ztt-tab-btn'));
+          }
+        },
+      },
+    },
+  });
 
   /* ═══════════════════════════════════════════════════════════════════════
    *  TEXT MODULES
@@ -272,46 +328,59 @@ export default function registerDiviModules(editor) {
   bm.add('divi-slider', {
     label: 'Slider', category: CAT.media,
     media: svg('M1 12h4M19 12h4M7 5l10 7-10 7V5z'),
-    content: sec(`
-      <div style="position:relative;border-radius:28px;overflow:hidden;
-        background:rgba(255,255,255,.02);border:1px solid ${c.border};
-        min-height:480px;display:flex;flex-direction:column;
-        align-items:center;justify-content:center;text-align:center;padding:80px 40px;">
-        <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
-          width:600px;height:600px;background:radial-gradient(circle,
-          rgba(129,140,248,.08) 0%,transparent 70%);border-radius:50%;pointer-events:none;"></div>
-        <div style="position:relative;z-index:2;max-width:640px;">
-          <div style="font-size:12px;font-weight:700;color:${c.accent};
-            letter-spacing:.1em;text-transform:uppercase;margin-bottom:20px;">Slide 1 of 3</div>
-          ${h2('Stunning Visual Experiences', '54px')}
-          ${para('Build captivating full-width slides with rich media, text overlays, and call-to-action buttons.')}
-          <div style="display:flex;gap:12px;justify-content:center;">${btn('Get Started')}${btn('Learn More', false)}</div>
+    content: {
+      type: 'swiper-container',
+      content: `
+        <div class="swiper-wrapper">
+          ${[1,2,3].map(i => `
+            <div class="swiper-slide" style="min-height:480px; display:flex; align-items:center; justify-content:center; text-align:center; padding:80px 40px; background:rgba(255,255,255,.02); border:1px solid ${c.border}; border-radius:28px; position:relative; overflow:hidden;">
+              <div style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:600px; height:600px; background:radial-gradient(circle, rgba(124,58,237,.08) 0%, transparent 70%); border-radius:50%; pointer-events:none;"></div>
+              <div style="position:relative; z-index:2; max-width:640px;">
+                <div style="font-size:12px; font-weight:700; color:${c.accent}; letter-spacing:.1em; text-transform:uppercase; margin-bottom:20px;">Slide ${i} of 3</div>
+                ${h2('Stunning Visual Experiences', '54px')}
+                ${para('Build captivating slides with rich media, text overlays, and call-to-action buttons.')}
+                <div style="display:flex; gap:12px; justify-content:center;">${btn('Get Started')}${btn('Learn More', false)}</div>
+              </div>
+            </div>
+          `).join('')}
         </div>
-        <div style="position:absolute;bottom:24px;display:flex;gap:8px;z-index:2;">
-          ${[1,2,3].map((i,idx) => `<div style="width:${idx===0?'24px':'8px'};height:8px;
-            border-radius:4px;background:${idx===0?'#818cf8':'rgba(255,255,255,.2)'};
-            transition:width .3s;"></div>`).join('')}
-        </div>
-      </div>
-    `, '40px'),
+        <div class="swiper-pagination"></div>
+        <div class="swiper-button-prev" style="color:${c.accent};"></div>
+        <div class="swiper-button-next" style="color:${c.accent};"></div>
+        <style>
+          .swiper-button-next:after, .swiper-button-prev:after { font-size: 24px !important; font-weight: 800; }
+          .swiper-pagination-bullet { background: ${c.dim} !important; opacity: 0.3; }
+          .swiper-pagination-bullet-active { background: ${c.accent} !important; opacity: 1; box-shadow: 0 0 10px ${c.accent}; }
+        </style>
+      `
+    }
   });
 
   /** Fullwidth Slider */
   bm.add('divi-fw-slider', {
     label: 'Fullwidth Slider', category: CAT.fullwidth,
     media: svg('M1 12h22M7 5l10 7-10 7V5z'),
-    content: `<section style="width:100%;min-height:600px;background:#0a0a14;position:relative;
-      overflow:hidden;display:flex;align-items:center;justify-content:center;${f}color:${c.txt};">
-      <div style="position:absolute;inset:0;background:linear-gradient(135deg,
-        rgba(129,140,248,.12) 0%,rgba(192,132,252,.08) 100%);"></div>
-      <div style="position:relative;z-index:2;text-align:center;max-width:760px;padding:0 24px;">
-        <div style="font-size:12px;font-weight:700;color:${c.accent};
-          letter-spacing:.1em;text-transform:uppercase;margin-bottom:20px;">Fullwidth Slide</div>
-        ${h2('Immersive Full-Screen Hero', '68px')}
-        ${para('Make a bold statement with edge-to-edge imagery and compelling typography.')}
-        <div style="display:flex;gap:16px;justify-content:center;">${btn('Start Now')}${btn('See Examples', false)}</div>
-      </div>
-    </section>`,
+    content: {
+      type: 'swiper-container',
+      content: `
+        <div class="swiper-wrapper">
+          ${[1,2].map(i => `
+            <div class="swiper-slide" style="min-height:600px; background:#0a0a14; position:relative; overflow:hidden; display:flex; align-items:center; justify-content:center; ${f} color:#fff;">
+              <div style="position:absolute; inset:0; background:linear-gradient(135deg, rgba(124,58,237,.12) 0%, rgba(6,182,212,.08) 100%);"></div>
+              <div style="position:relative; z-index:2; text-align:center; max-width:760px; padding:0 24px;">
+                <div style="font-size:12px; font-weight:700; color:${c.accent}; letter-spacing:.1em; text-transform:uppercase; margin-bottom:20px;">Fullwidth Slide ${i}</div>
+                ${h2('Immersive Full-Screen Hero', '68px')}
+                ${para('Make a bold statement with edge-to-edge imagery and compelling typography.')}
+                <div style="display:flex; gap:16px; justify-content:center;">${btn('Start Now')}${btn('See Examples', false)}</div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+        <div class="swiper-pagination"></div>
+        <div class="swiper-button-prev" style="color:${c.accent};"></div>
+        <div class="swiper-button-next" style="color:${c.accent};"></div>
+      `
+    }
   });
 
   /** Audio */
@@ -460,7 +529,7 @@ export default function registerDiviModules(editor) {
   /** Toggle */
   bm.add('divi-toggle', {
     label: 'Toggle', category: CAT.interactive,
-    media: svg('M21 12H3M12 21V3'),
+    media: svg('M8 7h12M8 12h12M8 17h12M3 7h.01M3 12h.01M3 17h.01'),
     content: sec(`
       ${h2('Toggle Items', '36px')}
       <div style="display:flex;flex-direction:column;gap:12px;margin-top:32px;max-width:680px;">
@@ -492,7 +561,7 @@ export default function registerDiviModules(editor) {
   /** Accordion */
   bm.add('divi-accordion', {
     label: 'Accordion', category: CAT.interactive,
-    media: svg('M4 6h16M4 12h16M4 18h16'),
+    media: svg('M4 7h16M4 12h10M4 17h16M18 12h2'),
     content: sec(`
       ${h2('Accordion', '36px')}
       <div style="max-width:700px;margin-top:32px;">
@@ -520,28 +589,45 @@ export default function registerDiviModules(editor) {
   /** Tabs */
   bm.add('divi-tabs', {
     label: 'Tabs', category: CAT.interactive,
-    media: svg('M19 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2zM4 10h16'),
-    content: sec(`
-      ${h2('Tab Module', '36px')}
-      <div style="max-width:800px;margin-top:32px;">
-        <div style="display:flex;gap:4px;background:#f1f5f9;
-          border-radius:14px;padding:4px;border:1px solid ${c.border};
-          width:fit-content;margin-bottom:0;">
-          ${['Overview', 'Features', 'Pricing', 'FAQ'].map((t,i) => `
-            <button style="padding:10px 20px;border:none;border-radius:10px;cursor:pointer;
-              font-size:14px;font-weight:600;${f}transition:all .2s;
-              ${i===0
-                ? `background:${c.grad};color:#fff;box-shadow:0 10px 20px rgba(124,58,237,.3);`
-                : `background:transparent;color:${c.muted};`}">${t}</button>
-          `).join('')}
+    media: svg('M4 7h16M4 17h16M7 7v10M12 7v10'),
+    content: {
+      type: 'divi-tabs-module',
+      components: sec(`
+        ${h2('Tab Module', '36px')}
+        <div style="max-width:800px;margin-top:32px;">
+          <div style="display:flex;gap:4px;background:#f1f5f9;border-radius:14px;padding:4px;border:1px solid ${c.border};width:fit-content;margin-bottom:0;">
+            <button data-ztt-tab-btn="overview" aria-selected="true" style="padding:10px 20px;border:none;border-radius:10px;cursor:pointer;font-size:14px;font-weight:600;${f}transition:all .2s;background:${c.grad};color:#fff;box-shadow:0 10px 20px rgba(124,58,237,.3);">Overview</button>
+            <button data-ztt-tab-btn="features" aria-selected="false" style="padding:10px 20px;border:none;border-radius:10px;cursor:pointer;font-size:14px;font-weight:600;${f}transition:all .2s;background:transparent;color:${c.muted};">Features</button>
+            <button data-ztt-tab-btn="pricing" aria-selected="false" style="padding:10px 20px;border:none;border-radius:10px;cursor:pointer;font-size:14px;font-weight:600;${f}transition:all .2s;background:transparent;color:${c.muted};">Pricing</button>
+            <button data-ztt-tab-btn="faq" aria-selected="false" style="padding:10px 20px;border:none;border-radius:10px;cursor:pointer;font-size:14px;font-weight:600;${f}transition:all .2s;background:transparent;color:${c.muted};">FAQ</button>
+          </div>
+
+          <div data-ztt-tab-panel="overview">${card(`
+            <h3 style="font-size:20px;font-weight:700;color:${c.txt};margin:0 0 12px;">Overview Tab</h3>
+            ${para('This is the overview content. Click the tabs to switch between real tab panels.')}
+            ${btn('Explore Features')}
+          `)}</div>
+
+          <div data-ztt-tab-panel="features" style="display:none;">${card(`
+            <h3 style="font-size:20px;font-weight:700;color:${c.txt};margin:0 0 12px;">Features Tab</h3>
+            ${para('Feature highlights, capability matrix, and visual showcases appear in this panel.')}
+            ${btn('View Modules', false)}
+          `)}</div>
+
+          <div data-ztt-tab-panel="pricing" style="display:none;">${card(`
+            <h3 style="font-size:20px;font-weight:700;color:${c.txt};margin:0 0 12px;">Pricing Tab</h3>
+            ${para('Pricing tiers, billing options, and plan comparisons can be shown here.')}
+            ${btn('See Pricing')}
+          `)}</div>
+
+          <div data-ztt-tab-panel="faq" style="display:none;">${card(`
+            <h3 style="font-size:20px;font-weight:700;color:${c.txt};margin:0 0 12px;">FAQ Tab</h3>
+            ${para('Frequently asked questions and short answers fit naturally in this panel.')}
+            ${btn('Read Documentation', false)}
+          `)}</div>
         </div>
-        ${card(`
-          <h3 style="font-size:20px;font-weight:700;color:${c.txt};margin:0 0 12px;">Overview Tab</h3>
-          ${para('This is the content for the Overview tab. Click other tabs to switch between different content sections.')}
-          ${btn('Explore Features')}
-        `)}
-      </div>
-    `, '60px'),
+      `, '60px'),
+    },
   });
 
   /* ═══════════════════════════════════════════════════════════════════════
