@@ -125,14 +125,13 @@ function unlockImportedComponents(editor) {
   if (!wrapper) return;
 
   const textTags = new Set(['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'span', 'a', 'li', 'button', 'label']);
-  const all = wrapper.find('*');
-  all.forEach((cmp) => {
+  const applyComponentInteractivity = (cmp) => {
+    if (!cmp) return;
     const tag = (cmp.get('tagName') || '').toLowerCase();
     const attrs = cmp.getAttributes?.() || {};
     const cls = String(attrs.class || '').toLowerCase();
     const id = String(attrs.id || '').toLowerCase();
     const isPreloaderLike = PRELOADER_KEYWORDS.some(k => cls.includes(k) || id.includes(k));
-
     if (isPreloaderLike) return;
 
     const isImageTag = tag === 'img';
@@ -145,13 +144,15 @@ function unlockImportedComponents(editor) {
       editable: textTags.has(tag),
       copyable: true,
       removable: true,
-      // Ensure imported <img> nodes can be interacted with directly.
       stylable: true,
       layerable: true,
       badgable: true,
       resizable: isImageTag ? { ratioDefault: true } : cmp.get('resizable'),
     });
-  });
+  };
+
+  applyComponentInteractivity(wrapper);
+  wrapper.find('*').forEach(applyComponentInteractivity);
 }
 
 function buildWpHtmlBlock(content) {
@@ -167,6 +168,152 @@ function buildSavePayload(editor, themeColorsRef) {
   // Keep content inside a Custom HTML block so WordPress does not auto-format
   // bootstrap/layout markup after publishing.
   return buildWpHtmlBlock(merged);
+}
+
+function enhanceModuleInteractivity(cdoc) {
+  if (!cdoc || !cdoc.body) return;
+
+  // 1) Forms: prevent dead submits and provide basic UX.
+  cdoc.querySelectorAll('form').forEach((form) => {
+    if (form.dataset.zttFormBound === '1') return;
+    form.dataset.zttFormBound = '1';
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const required = form.querySelectorAll('input[required], textarea[required], select[required]');
+      let invalid = false;
+      required.forEach((el) => {
+        if (!el.value || !String(el.value).trim()) invalid = true;
+      });
+      const msg = cdoc.createElement('div');
+      msg.textContent = invalid ? 'Please fill all required fields.' : 'Demo submit captured successfully.';
+      msg.style.cssText = 'margin-top:10px;padding:8px 10px;border-radius:8px;font-size:12px;background:rgba(124,58,237,.15);color:#c4b5fd;border:1px solid rgba(124,58,237,.35);';
+      form.appendChild(msg);
+      setTimeout(() => msg.remove(), 2000);
+    });
+  });
+
+  // 2) Details-based modules (toggle/accordion/faq): keep +/- state synced.
+  cdoc.querySelectorAll('details').forEach((det) => {
+    if (det.dataset.zttDetailsBound === '1') return;
+    det.dataset.zttDetailsBound = '1';
+    const summary = det.querySelector('summary');
+    if (!summary) return;
+
+    const syncIcon = () => {
+      let icon = summary.querySelector('[data-ztt-icon]');
+      if (!icon) {
+        const spans = summary.querySelectorAll('span');
+        icon = spans.length ? spans[spans.length - 1] : null;
+        if (icon) icon.setAttribute('data-ztt-icon', '1');
+      }
+      if (icon) icon.textContent = det.open ? '−' : '+';
+    };
+
+    det.addEventListener('toggle', syncIcon);
+    syncIcon();
+  });
+
+  // 3) Tabs module (data-ztt-tab-btn / data-ztt-tab-panel).
+  cdoc.querySelectorAll('[data-ztt-tab-btn]').forEach((btn) => {
+    if (btn.dataset.zttTabBound === '1') return;
+    btn.dataset.zttTabBound = '1';
+    btn.addEventListener('click', () => {
+      const id = btn.getAttribute('data-ztt-tab-btn');
+      if (!id) return;
+      const root = btn.closest('section, div') || cdoc.body;
+      root.querySelectorAll('[data-ztt-tab-btn]').forEach((b) => {
+        const active = b.getAttribute('data-ztt-tab-btn') === id;
+        b.style.background = active ? 'linear-gradient(135deg,#7c3aed 0%,#06b6d4 100%)' : 'transparent';
+        b.style.color = active ? '#fff' : '#475569';
+        b.style.boxShadow = active ? '0 10px 20px rgba(124,58,237,.3)' : 'none';
+      });
+      root.querySelectorAll('[data-ztt-tab-panel]').forEach((panel) => {
+        panel.style.display = panel.getAttribute('data-ztt-tab-panel') === id ? 'block' : 'none';
+      });
+    });
+  });
+
+  // 4) Counters: animate obvious numeric stat values once.
+  cdoc.querySelectorAll('div, span').forEach((el) => {
+    if (el.dataset.zttCountDone === '1') return;
+    const txt = (el.textContent || '').trim();
+    if (!txt || txt.length > 12) return;
+    const match = txt.match(/^([<>]?\d+)([KMB]?)(\+?%?|ms)?$/i);
+    if (!match) return;
+
+    const [, n, scale, suffix = ''] = match;
+    const target = parseInt(n.replace(/[<>]/g, ''), 10);
+    if (!Number.isFinite(target) || target < 2) return;
+    el.dataset.zttCountDone = '1';
+
+    let current = 0;
+    const steps = 24;
+    const step = Math.max(1, Math.floor(target / steps));
+    const t = cdoc.defaultView.setInterval(() => {
+      current += step;
+      if (current >= target) {
+        current = target;
+        cdoc.defaultView.clearInterval(t);
+      }
+      const prefix = txt.startsWith('<') ? '<' : (txt.startsWith('>') ? '>' : '');
+      el.textContent = `${prefix}${current}${scale || ''}${suffix || ''}`;
+    }, 35);
+  });
+
+  // 5) Portfolio filter: activate button-based filtering when block exists.
+  cdoc.querySelectorAll('section').forEach((section) => {
+    const buttons = section.querySelectorAll('button');
+    const cards = section.querySelectorAll('div[style*="Project"][style*="uppercase"]');
+    if (buttons.length < 3 || cards.length < 4) return;
+    if (section.dataset.zttFilterBound === '1') return;
+    section.dataset.zttFilterBound = '1';
+
+    const categories = ['all', 'web design', 'branding', 'mobile', 'motion'];
+    const cardNodes = Array.from(cards).map(node => node.closest('div[style*="border-radius:18px"]') || node.parentElement).filter(Boolean);
+    cardNodes.forEach((card, i) => {
+      card.dataset.zttCat = categories[(i % 4) + 1];
+    });
+
+    buttons.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const label = (btn.textContent || '').trim().toLowerCase();
+        const filter = label || 'all';
+        buttons.forEach((b) => {
+          b.style.background = b === btn ? 'rgba(129,140,248,.2)' : 'transparent';
+          b.style.color = b === btn ? '#7c3aed' : '#64748b';
+        });
+        cardNodes.forEach((card) => {
+          card.style.display = filter === 'all' || card.dataset.zttCat === filter ? 'block' : 'none';
+        });
+      });
+    });
+  });
+
+  // 6) Countdown: decrement obvious 4-slot countdown cards.
+  cdoc.querySelectorAll('section').forEach((section) => {
+    if (section.dataset.zttCountdownBound === '1') return;
+    const heading = (section.textContent || '').toLowerCase();
+    if (!heading.includes('countdown')) return;
+    const values = section.querySelectorAll('div');
+    const slots = Array.from(values).filter((v) => /^\d{2}$/.test((v.textContent || '').trim())).slice(0, 4);
+    if (slots.length !== 4) return;
+    section.dataset.zttCountdownBound = '1';
+
+    let total = (parseInt(slots[0].textContent, 10) * 86400)
+      + (parseInt(slots[1].textContent, 10) * 3600)
+      + (parseInt(slots[2].textContent, 10) * 60)
+      + parseInt(slots[3].textContent, 10);
+    const tick = () => {
+      if (total <= 0) return;
+      total -= 1;
+      const d = Math.floor(total / 86400);
+      const h = Math.floor((total % 86400) / 3600);
+      const m = Math.floor((total % 3600) / 60);
+      const s = total % 60;
+      [d, h, m, s].forEach((n, i) => { slots[i].textContent = String(n).padStart(2, '0'); });
+    };
+    cdoc.defaultView.setInterval(tick, 1000);
+  });
 }
 
 /* ── Loading Screen ─────────────────────────────────────────────────────── */
@@ -624,11 +771,16 @@ function App({ postId }) {
       editor.on('load', () => {
         nukePreloadersInCanvas(editor.Canvas.getDocument());
         unlockImportedComponents(editor);
+        enhanceModuleInteractivity(editor.Canvas.getDocument());
       });
 
       editor.on('load', () => {
         [300, 1200, 2500].forEach(delay => {
-          setTimeout(() => nukePreloadersInCanvas(editor.Canvas.getDocument()), delay);
+          setTimeout(() => {
+            const cdoc = editor.Canvas.getDocument();
+            nukePreloadersInCanvas(cdoc);
+            enhanceModuleInteractivity(cdoc);
+          }, delay);
         });
 
         const cdoc = editor.Canvas.getDocument();
@@ -636,6 +788,7 @@ function App({ postId }) {
 
         const observer = new cdoc.defaultView.MutationObserver(() => {
           nukePreloadersInCanvas(cdoc);
+          enhanceModuleInteractivity(cdoc);
         });
         observer.observe(cdoc.body, { childList: true, subtree: true });
         setTimeout(() => observer.disconnect(), 5000);
@@ -914,6 +1067,12 @@ function App({ postId }) {
         if (!isImageLike) return;
         editor.select(model);
         editor.runCommand('change-image-src');
+      });
+
+      // Guarantee all newly dropped blocks/modules are editable in the same way
+      // as imported content (prevents modules from feeling "locked" inconsistently).
+      editor.on('component:add', () => {
+        unlockImportedComponents(editor);
       });
 
     }, 100);

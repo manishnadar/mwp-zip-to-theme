@@ -109,6 +109,48 @@ export default function registerDiviModules(editor) {
     fullwidth:   'Divi — Fullwidth',
   };
 
+  // Interactive tabs module with real switching behavior in canvas/runtime.
+  editor.DomComponents.addType('divi-tabs-module', {
+    model: {
+      defaults: {
+        script: function () {
+          const root = this;
+          const tabButtons = root.querySelectorAll('[data-ztt-tab-btn]');
+          const tabPanels = root.querySelectorAll('[data-ztt-tab-panel]');
+
+          const activateTab = (tabId) => {
+            tabButtons.forEach((btn) => {
+              const active = btn.getAttribute('data-ztt-tab-btn') === tabId;
+              btn.setAttribute('aria-selected', active ? 'true' : 'false');
+              btn.style.background = active
+                ? 'linear-gradient(135deg,#7c3aed 0%,#06b6d4 100%)'
+                : 'transparent';
+              btn.style.color = active ? '#fff' : '#475569';
+              btn.style.boxShadow = active ? '0 10px 20px rgba(124,58,237,.3)' : 'none';
+            });
+
+            tabPanels.forEach((panel) => {
+              const active = panel.getAttribute('data-ztt-tab-panel') === tabId;
+              panel.style.display = active ? 'block' : 'none';
+            });
+          };
+
+          tabButtons.forEach((btn) => {
+            btn.addEventListener('click', () => {
+              const tabId = btn.getAttribute('data-ztt-tab-btn');
+              if (!tabId) return;
+              activateTab(tabId);
+            });
+          });
+
+          if (tabButtons.length > 0) {
+            activateTab(tabButtons[0].getAttribute('data-ztt-tab-btn'));
+          }
+        },
+      },
+    },
+  });
+
   /* ═══════════════════════════════════════════════════════════════════════
    *  TEXT MODULES
    * ═══════════════════════════════════════════════════════════════════════ */
@@ -548,27 +590,44 @@ export default function registerDiviModules(editor) {
   bm.add('divi-tabs', {
     label: 'Tabs', category: CAT.interactive,
     media: svg('M4 7h16M4 17h16M7 7v10M12 7v10'),
-    content: sec(`
-      ${h2('Tab Module', '36px')}
-      <div style="max-width:800px;margin-top:32px;">
-        <div style="display:flex;gap:4px;background:#f1f5f9;
-          border-radius:14px;padding:4px;border:1px solid ${c.border};
-          width:fit-content;margin-bottom:0;">
-          ${['Overview', 'Features', 'Pricing', 'FAQ'].map((t,i) => `
-            <button style="padding:10px 20px;border:none;border-radius:10px;cursor:pointer;
-              font-size:14px;font-weight:600;${f}transition:all .2s;
-              ${i===0
-                ? `background:${c.grad};color:#fff;box-shadow:0 10px 20px rgba(124,58,237,.3);`
-                : `background:transparent;color:${c.muted};`}">${t}</button>
-          `).join('')}
+    content: {
+      type: 'divi-tabs-module',
+      components: sec(`
+        ${h2('Tab Module', '36px')}
+        <div style="max-width:800px;margin-top:32px;">
+          <div style="display:flex;gap:4px;background:#f1f5f9;border-radius:14px;padding:4px;border:1px solid ${c.border};width:fit-content;margin-bottom:0;">
+            <button data-ztt-tab-btn="overview" aria-selected="true" style="padding:10px 20px;border:none;border-radius:10px;cursor:pointer;font-size:14px;font-weight:600;${f}transition:all .2s;background:${c.grad};color:#fff;box-shadow:0 10px 20px rgba(124,58,237,.3);">Overview</button>
+            <button data-ztt-tab-btn="features" aria-selected="false" style="padding:10px 20px;border:none;border-radius:10px;cursor:pointer;font-size:14px;font-weight:600;${f}transition:all .2s;background:transparent;color:${c.muted};">Features</button>
+            <button data-ztt-tab-btn="pricing" aria-selected="false" style="padding:10px 20px;border:none;border-radius:10px;cursor:pointer;font-size:14px;font-weight:600;${f}transition:all .2s;background:transparent;color:${c.muted};">Pricing</button>
+            <button data-ztt-tab-btn="faq" aria-selected="false" style="padding:10px 20px;border:none;border-radius:10px;cursor:pointer;font-size:14px;font-weight:600;${f}transition:all .2s;background:transparent;color:${c.muted};">FAQ</button>
+          </div>
+
+          <div data-ztt-tab-panel="overview">${card(`
+            <h3 style="font-size:20px;font-weight:700;color:${c.txt};margin:0 0 12px;">Overview Tab</h3>
+            ${para('This is the overview content. Click the tabs to switch between real tab panels.')}
+            ${btn('Explore Features')}
+          `)}</div>
+
+          <div data-ztt-tab-panel="features" style="display:none;">${card(`
+            <h3 style="font-size:20px;font-weight:700;color:${c.txt};margin:0 0 12px;">Features Tab</h3>
+            ${para('Feature highlights, capability matrix, and visual showcases appear in this panel.')}
+            ${btn('View Modules', false)}
+          `)}</div>
+
+          <div data-ztt-tab-panel="pricing" style="display:none;">${card(`
+            <h3 style="font-size:20px;font-weight:700;color:${c.txt};margin:0 0 12px;">Pricing Tab</h3>
+            ${para('Pricing tiers, billing options, and plan comparisons can be shown here.')}
+            ${btn('See Pricing')}
+          `)}</div>
+
+          <div data-ztt-tab-panel="faq" style="display:none;">${card(`
+            <h3 style="font-size:20px;font-weight:700;color:${c.txt};margin:0 0 12px;">FAQ Tab</h3>
+            ${para('Frequently asked questions and short answers fit naturally in this panel.')}
+            ${btn('Read Documentation', false)}
+          `)}</div>
         </div>
-        ${card(`
-          <h3 style="font-size:20px;font-weight:700;color:${c.txt};margin:0 0 12px;">Overview Tab</h3>
-          ${para('This is the content for the Overview tab. Click other tabs to switch between different content sections.')}
-          ${btn('Explore Features')}
-        `)}
-      </div>
-    `, '60px'),
+      `, '60px'),
+    },
   });
 
   /* ═══════════════════════════════════════════════════════════════════════
