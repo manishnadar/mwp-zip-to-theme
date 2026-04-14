@@ -13,6 +13,10 @@ jQuery(function () {
     const themeName = document.getElementById('ztt-theme-name');
     const slugPreview    = document.getElementById('ztt-slug-preview');
     const slugPreviewVal = document.getElementById('ztt-slug-preview-val');
+    const runtimeProgress = document.getElementById('ztt-runtime-progress');
+    const runtimeFill = document.getElementById('ztt-runtime-progress-fill');
+    const runtimePercent = document.getElementById('ztt-runtime-progress-percent');
+    const runtimeMsg = document.getElementById('ztt-runtime-progress-msg');
 
     if (!dropzone) return;
 
@@ -150,7 +154,36 @@ jQuery(function () {
     if (themeSlug) themeSlug.addEventListener('input', updateProgress);
     updateProgress();
 
-    // ── Submit loading state ──────────────────────────────────────────────
+    let progressPoll = null;
+
+    function setRuntimeProgress(percent, message) {
+        if (!runtimeProgress) return;
+        runtimeProgress.style.display = '';
+        const p = Math.max(0, Math.min(100, Number(percent) || 0));
+        if (runtimeFill) runtimeFill.style.width = p + '%';
+        if (runtimePercent) runtimePercent.textContent = p + '%';
+        if (runtimeMsg && message) runtimeMsg.textContent = message;
+    }
+
+    function startProgressPolling() {
+        if (!window.zttAdminData?.ajaxUrl || !window.zttAdminData?.nonce) return;
+        if (progressPoll) clearInterval(progressPoll);
+        progressPoll = setInterval(() => {
+            jQuery.post(window.zttAdminData.ajaxUrl, {
+                action: 'ztt_convert_progress',
+                _wpnonce: window.zttAdminData.nonce
+            }).done((res) => {
+                if (!res || !res.success || !res.data) return;
+                setRuntimeProgress(res.data.percent, res.data.message);
+                if (res.data.status === 'done' || res.data.status === 'error') {
+                    clearInterval(progressPoll);
+                    progressPoll = null;
+                }
+            });
+        }, 700);
+    }
+
+    // ── Submit loading state + async conversion with live progress ───────
     if (form && submitBtn) {
         form.addEventListener('submit', function (e) {
             if (!fileInput.files || !fileInput.files.length) {
@@ -159,6 +192,7 @@ jQuery(function () {
                 setTimeout(() => dropzone.classList.remove('is-over'), 1200);
                 return;
             }
+            e.preventDefault();
             submitBtn.classList.add('is-loading');
             submitBtn.disabled = true;
             submitBtn.querySelector('.ztt-btn__label').textContent = 'Converting…';
@@ -170,6 +204,55 @@ jQuery(function () {
             steps[1].classList.add('is-done');
             steps[2].classList.add('is-done');
             steps[3].classList.add('is-active');
+
+            setRuntimeProgress(2, 'Starting conversion…');
+            startProgressPolling();
+
+            const fd = new FormData(form);
+            fd.append('action', 'ztt_convert');
+            if (!fd.get('_wpnonce') && window.zttAdminData?.nonce) {
+                fd.append('_wpnonce', window.zttAdminData.nonce);
+            }
+
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', window.zttAdminData?.ajaxUrl || window.ajaxurl, true);
+
+            xhr.upload.onprogress = function (evt) {
+                if (!evt.lengthComputable) return;
+                // Reserve 0-20% for upload, server stages fill remaining range.
+                const uploadPercent = Math.min(20, Math.round((evt.loaded / evt.total) * 20));
+                setRuntimeProgress(uploadPercent, 'Uploading ZIP archive…');
+            };
+
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState !== 4) return;
+                if (progressPoll) {
+                    clearInterval(progressPoll);
+                    progressPoll = null;
+                }
+
+                try {
+                    const resp = JSON.parse(xhr.responseText || '{}');
+                    if (xhr.status >= 200 && xhr.status < 300 && resp.success) {
+                        setRuntimeProgress(100, 'Conversion completed. Redirecting…');
+                        const redirectUrl = resp.data?.redirect || window.zttAdminData?.successUrl;
+                        setTimeout(() => {
+                            if (redirectUrl) window.location.href = redirectUrl;
+                            else window.location.reload();
+                        }, 650);
+                        return;
+                    }
+                    throw new Error(resp.data?.message || 'Conversion failed');
+                } catch (err) {
+                    setRuntimeProgress(100, err.message || 'Conversion failed.');
+                    submitBtn.classList.remove('is-loading');
+                    submitBtn.disabled = false;
+                    submitBtn.querySelector('.ztt-btn__label').textContent = 'Convert to WordPress Theme';
+                    alert(err.message || 'Conversion failed.');
+                }
+            };
+
+            xhr.send(fd);
         });
     }
 });

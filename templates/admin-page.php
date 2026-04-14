@@ -64,6 +64,17 @@
         </div>
     </div>
 
+    <div class="ztt-runtime-progress" id="ztt-runtime-progress" style="display:none;">
+        <div class="ztt-runtime-progress__head">
+            <span class="ztt-runtime-progress__label">Conversion Progress</span>
+            <span class="ztt-runtime-progress__percent" id="ztt-runtime-progress-percent">0%</span>
+        </div>
+        <div class="ztt-runtime-progress__bar">
+            <span class="ztt-runtime-progress__fill" id="ztt-runtime-progress-fill" style="width:0%;"></span>
+        </div>
+        <div class="ztt-runtime-progress__msg" id="ztt-runtime-progress-msg">Preparing conversion…</div>
+    </div>
+
     <!-- ── Main Layout ───────────────────────────────────────────────────── -->
     <div class="ztt-layout">
 
