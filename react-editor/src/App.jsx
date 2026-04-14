@@ -135,6 +135,7 @@ function unlockImportedComponents(editor) {
 
     if (isPreloaderLike) return;
 
+    const isImageTag = tag === 'img';
     cmp.set({
       selectable: true,
       hoverable: true,
@@ -144,6 +145,11 @@ function unlockImportedComponents(editor) {
       editable: textTags.has(tag),
       copyable: true,
       removable: true,
+      // Ensure imported <img> nodes can be interacted with directly.
+      stylable: true,
+      layerable: true,
+      badgable: true,
+      resizable: isImageTag ? { ratioDefault: true } : cmp.get('resizable'),
     });
   });
 }
@@ -852,13 +858,62 @@ function App({ postId }) {
         },
       });
 
+      // Replace selected <img> source from asset manager
+      editor.Commands.add('change-image-src', {
+        run(editor) {
+          const selected = editor.getSelected();
+          if (!selected) return;
+          const attrs = selected.getAttributes?.() || {};
+          const tagName = (selected.get('tagName') || '').toLowerCase();
+          const isImageLike = selected.is('image') || tagName === 'img' || !!attrs.src;
+          if (!isImageLike) return;
+
+          editor.runCommand('open-assets', {
+            types: ['image'],
+            accept: 'image/*',
+            onSelect(asset) {
+              const src = asset?.get ? asset.get('src') : asset?.src;
+              if (!src) return;
+              selected.addAttributes({ src });
+              editor.AssetManager.close();
+            },
+          });
+        },
+      });
+
       editor.on('component:selected', (model) => {
-        if (model.is('image') || model.is('textnode')) return;
+        const attrs = model.getAttributes?.() || {};
+        const tagName = (model.get('tagName') || '').toLowerCase();
+        const isImageLike = model.is('image') || tagName === 'img' || !!attrs.src;
+        if (model.is('textnode')) return;
+
+        if (isImageLike) {
+          const tb = model.get('toolbar') || [];
+          if (!tb.some(t => t.command === 'change-image-src')) {
+            tb.unshift({
+              attributes: { class: 'fa fa-image', title: 'Replace Image' },
+              command: 'change-image-src'
+            });
+            model.set('toolbar', tb);
+          }
+          return;
+        }
+
         const tb = model.get('toolbar') || [];
         if (!tb.some(t => t.command === 'change-bg-image')) {
           tb.unshift({ attributes: { class: 'fa fa-picture-o', title: 'Change Background Image' }, command: 'change-bg-image' });
           model.set('toolbar', tb);
         }
+      });
+
+      // Fast path UX: double-click an image to replace it.
+      editor.on('component:dblclick', (model) => {
+        const attrs = model.getAttributes?.() || {};
+        const tagName = (model.get('tagName') || '').toLowerCase();
+        const isImageLike = model.is('image') || tagName === 'img' || !!attrs.src;
+        if (!isImageLike) return;
+        editor.select(model);
+        editor.runCommand('change-image-src');
       });
 
     }, 100);
