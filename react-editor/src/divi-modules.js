@@ -28,14 +28,28 @@ export default function registerDiviModules(editor) {
 
   /* ─── Small helpers ────────────────────────────────────────────────────── */
   const svg  = (d, extra='') =>
-    `<div style="display:flex;align-items:center;justify-content:center;
-      width:46px;height:46px;background:rgba(124,58,237,0.08);border-radius:14px;
-      margin:0 auto 6px;transition:all .3s;">
-      <svg viewBox="0 0 24 24" fill="none" stroke="${c.accent}" stroke-width="1.5"
-        stroke-linecap="round" stroke-linejoin="round" style="width:22px;height:22px;" ${extra}>
-        <path d="${d}"/>
+    `<span class="ztt-block-thumb-wrap">
+      <svg viewBox="0 0 120 84" class="gjs-block-svg ztt-block-thumb-svg" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Module preview">
+        <defs>
+          <linearGradient id="zttDiviThumbBg" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#11172a"/>
+            <stop offset="100%" stop-color="#0b1220"/>
+          </linearGradient>
+          <linearGradient id="zttDiviThumbCard" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#1b2438"/>
+            <stop offset="100%" stop-color="#121a2a"/>
+          </linearGradient>
+        </defs>
+        <rect x="1" y="1" width="118" height="82" rx="12" fill="url(#zttDiviThumbBg)" stroke="rgba(124,58,237,0.45)"/>
+        <rect x="9" y="10" width="102" height="12" rx="6" fill="rgba(255,255,255,0.08)"/>
+        <rect x="9" y="27" width="52" height="48" rx="9" fill="url(#zttDiviThumbCard)" stroke="rgba(255,255,255,0.08)"/>
+        <rect x="66" y="27" width="45" height="21" rx="8" fill="rgba(6,182,212,0.16)" stroke="rgba(6,182,212,0.35)"/>
+        <rect x="66" y="54" width="45" height="21" rx="8" fill="rgba(124,58,237,0.16)" stroke="rgba(124,58,237,0.35)"/>
+        <g transform="translate(35,51)" stroke="${c.accent}" stroke-width="1.75" fill="none" stroke-linecap="round" stroke-linejoin="round" ${extra}>
+          <path d="${d}"/>
+        </g>
       </svg>
-    </div>`;
+    </span>`;
 
   const sec  = (inner, py='100px') =>
     `<section style="width:100%;background:${c.bg};padding:${py} 24px;
@@ -473,7 +487,7 @@ export default function registerDiviModules(editor) {
   /** Toggle */
   bm.add('divi-toggle', {
     label: 'Toggle', category: CAT.interactive,
-    media: svg('M21 12H3M12 21V3'),
+    media: svg('M8 7h12M8 12h12M8 17h12M3 7h.01M3 12h.01M3 17h.01'),
     content: sec(`
       ${h2('Toggle Items', '36px')}
       <div style="display:flex;flex-direction:column;gap:12px;margin-top:32px;max-width:680px;">
@@ -505,7 +519,7 @@ export default function registerDiviModules(editor) {
   /** Accordion */
   bm.add('divi-accordion', {
     label: 'Accordion', category: CAT.interactive,
-    media: svg('M4 6h16M4 12h16M4 18h16'),
+    media: svg('M4 7h16M4 12h10M4 17h16M18 12h2'),
     content: sec(`
       ${h2('Accordion', '36px')}
       <div style="max-width:700px;margin-top:32px;">
@@ -533,7 +547,7 @@ export default function registerDiviModules(editor) {
   /** Tabs */
   bm.add('divi-tabs', {
     label: 'Tabs', category: CAT.interactive,
-    media: svg('M19 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2zM4 10h16'),
+    media: svg('M4 7h16M4 17h16M7 7v10M12 7v10'),
     content: sec(`
       ${h2('Tab Module', '36px')}
       <div style="max-width:800px;margin-top:32px;">

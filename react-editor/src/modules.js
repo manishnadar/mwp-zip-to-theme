@@ -88,7 +88,30 @@ export default function registerModules(editor) {
   `;
 
   /* SVG Icons for Toolbox */
-  const makeSvg = (path) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="gjs-block-svg"><path d="${path}"/></svg>`;
+  const makeSvg = (path) => `
+    <span class="ztt-block-thumb-wrap">
+      <svg viewBox="0 0 120 84" class="gjs-block-svg ztt-block-thumb-svg" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Module preview">
+        <defs>
+          <linearGradient id="zttThumbBg" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#11172a"/>
+            <stop offset="100%" stop-color="#0b1220"/>
+          </linearGradient>
+          <linearGradient id="zttThumbCard" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#1b2438"/>
+            <stop offset="100%" stop-color="#121a2a"/>
+          </linearGradient>
+        </defs>
+        <rect x="1" y="1" width="118" height="82" rx="12" fill="url(#zttThumbBg)" stroke="rgba(124,58,237,0.45)"/>
+        <rect x="9" y="10" width="102" height="12" rx="6" fill="rgba(255,255,255,0.08)"/>
+        <rect x="9" y="27" width="52" height="48" rx="9" fill="url(#zttThumbCard)" stroke="rgba(255,255,255,0.08)"/>
+        <rect x="66" y="27" width="45" height="21" rx="8" fill="rgba(6,182,212,0.16)" stroke="rgba(6,182,212,0.35)"/>
+        <rect x="66" y="54" width="45" height="21" rx="8" fill="rgba(124,58,237,0.16)" stroke="rgba(124,58,237,0.35)"/>
+        <g transform="translate(35,51)" stroke="#c4b5fd" stroke-width="1.9" fill="none" stroke-linecap="round" stroke-linejoin="round">
+          <path d="${path}"/>
+        </g>
+      </svg>
+    </span>
+  `;
 
 
   /* ══════════════════════════════════════════════════════════
