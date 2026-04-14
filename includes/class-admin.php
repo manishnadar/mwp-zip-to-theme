@@ -10,6 +10,8 @@ class ZTT_Admin
         add_action('admin_menu', [$this, 'menu']);
         add_action('admin_enqueue_scripts', [$this, 'assets']);
         add_action('admin_post_ztt_convert', [$this, 'handle_conversion']);
+        add_action('wp_ajax_ztt_convert', [$this, 'ajax_convert']);
+        add_action('wp_ajax_ztt_convert_progress', [$this, 'ajax_progress']);
         
         // Add row actions
         add_filter('page_row_actions', [$this, 'add_visual_editor_link'], 10, 2);
@@ -79,6 +81,11 @@ class ZTT_Admin
         if ($hook === 'toplevel_page_ztt-dashboard') {
             wp_enqueue_style('ztt-admin', ZTT_PLUGIN_URL . 'assets/admin.css');
             wp_enqueue_script('ztt-admin', ZTT_PLUGIN_URL . 'assets/admin.js', ['jquery'], false, true);
+            wp_localize_script('ztt-admin', 'zttAdminData', [
+                'ajaxUrl'    => admin_url('admin-ajax.php'),
+                'nonce'      => wp_create_nonce('ztt_nonce'),
+                'successUrl' => admin_url('admin.php?page=ztt-dashboard&success=1'),
+            ]);
         }
         
         if ($hook === 'admin_page_ztt-visual-editor') {
@@ -148,26 +155,91 @@ class ZTT_Admin
 
     public function handle_conversion()
     {
+        ZTT_Security::check_nonce();
+        $this->run_conversion($_FILES, $_POST);
+        wp_redirect(admin_url('admin.php?page=ztt-dashboard&success=1'));
+        exit;
+    }
 
+    public function ajax_convert()
+    {
         ZTT_Security::check_nonce();
 
+        try {
+            $this->run_conversion($_FILES, $_POST);
+            $this->set_progress(100, 'done', 'Theme converted successfully.', 'done');
+            wp_send_json_success([
+                'redirect' => admin_url('admin.php?page=ztt-dashboard&success=1'),
+            ]);
+        } catch (Throwable $e) {
+            $this->set_progress(100, 'error', $e->getMessage(), 'error');
+            wp_send_json_error([
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function ajax_progress()
+    {
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(['message' => 'Unauthorized'], 403);
+        }
+
+        if (!isset($_REQUEST['_wpnonce']) || !wp_verify_nonce($_REQUEST['_wpnonce'], 'ztt_nonce')) {
+            wp_send_json_error(['message' => 'Invalid nonce'], 403);
+        }
+
+        $progress = get_transient($this->progress_key());
+        if (!$progress) {
+            $progress = [
+                'percent' => 0,
+                'stage'   => 'idle',
+                'message' => 'Waiting to start conversion.',
+                'status'  => 'idle',
+            ];
+        }
+
+        wp_send_json_success($progress);
+    }
+
+    private function run_conversion($files, $post)
+    {
+        $this->set_progress(5, 'prepare', 'Validating ZIP and settings...');
+
         $upload = new ZTT_Uploader();
-        $file = $upload->upload($_FILES['zip_file']);
+        $this->set_progress(18, 'upload', 'Uploading ZIP file...');
+        $file = $upload->upload($files['zip_file']);
 
         $extractor = new ZTT_Extractor();
+        $this->set_progress(34, 'extract', 'Extracting archive...');
         $path = $extractor->extract($file);
 
         $analyzer = new ZTT_Analyzer();
+        $this->set_progress(50, 'analyze', 'Analyzing HTML, assets and pages...');
         $data = $analyzer->analyze($path);
 
         $generator = new ZTT_Theme_Generator();
-        $generator->generate($data, $_POST);
+        $this->set_progress(70, 'generate', 'Generating WordPress theme and pages...');
+        $generator->generate($data, $post);
 
-        if (isset($_POST['activate']) && $_POST['activate']) {
-            switch_theme(sanitize_title($_POST['theme_slug']));
+        if (isset($post['activate']) && $post['activate']) {
+            $this->set_progress(90, 'activate', 'Activating generated theme...');
+            switch_theme(sanitize_title($post['theme_slug']));
         }
+    }
 
-        wp_redirect(admin_url('admin.php?page=ztt-dashboard&success=1'));
-        exit;
+    private function progress_key()
+    {
+        return 'ztt_convert_progress_' . get_current_user_id();
+    }
+
+    private function set_progress($percent, $stage, $message, $status = 'running')
+    {
+        set_transient($this->progress_key(), [
+            'percent' => max(0, min(100, (int) $percent)),
+            'stage'   => (string) $stage,
+            'message' => (string) $message,
+            'status'  => (string) $status,
+        ], 30 * MINUTE_IN_SECONDS);
     }
 }
