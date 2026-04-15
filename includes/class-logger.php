@@ -9,6 +9,10 @@ class ZTT_Logger
 
     public static function log($msg)
     {
+        $upload_dir = wp_upload_dir();
+        $file = $upload_dir['basedir'] . '/ztt-log.txt';
+        $timestamp = date('[Y-m-d H:i:s] ');
+        file_put_contents($file, $timestamp . $msg . PHP_EOL, FILE_APPEND);
         self::$log[] = $msg;
     }
 

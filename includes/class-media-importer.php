@@ -26,6 +26,7 @@ class ZTT_Media_Importer
             ];
 
             // 0 means it isn't attached to a specific post by default
+            ZTT_Logger::log("Sideloading image: " . $rel_path);
             $id = media_handle_sideload($file_array, 0);
 
             if (is_wp_error($id)) {

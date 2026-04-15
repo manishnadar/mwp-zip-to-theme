@@ -89,6 +89,18 @@ class ZTT_Theme_Generator
             $page_title = $parsed['title'];
             $body = isset($parsed['body']) ? $parsed['body'] : '';
 
+            // Prepend any per-page <style> AND <script> blocks from the original HTML <head>
+            $page_head_styles = isset($parsed['head_styles']) ? $parsed['head_styles'] : '';
+            $page_head_scripts = isset($parsed['head_scripts']) ? $parsed['head_scripts'] : '';
+            
+            if ($page_head_styles || $page_head_scripts) {
+                $injection = "<!-- wp:html -->\n";
+                if ($page_head_styles) $injection .= $page_head_styles . "\n";
+                if ($page_head_scripts) $injection .= $page_head_scripts . "\n";
+                $injection .= "<!-- /wp:html -->\n";
+                $body = $injection . $body;
+            }
+
             $body = str_replace("ZTT_THEME_URI_PLACEHOLDER", $abs_theme_uri, $body);
             $body = str_replace("ZTT_HOME_URL_PLACEHOLDER", $abs_home_url, $body);
 
@@ -119,8 +131,6 @@ class ZTT_Theme_Generator
 
         $extractor = new ZTT_Extractor();
         $extractor->cleanup($data['base_path']);
-
-        ZTT_Logger::save();
     }
 
     private function style($opt)

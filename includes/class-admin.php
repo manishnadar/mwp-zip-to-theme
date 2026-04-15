@@ -256,6 +256,9 @@ class ZTT_Admin
 
     private function run_conversion($files, $post)
     {
+        @set_time_limit(600); // 10 minutes
+        @ini_set('memory_limit', '512M');
+
         $this->set_progress(5, 'prepare', 'Validating ZIP and settings...');
 
         $upload = new ZTT_Uploader();

@@ -767,9 +767,13 @@ function App({ postId }) {
 
       const stripPreloaders = (html) => {
         const p = new DOMParser();
-        const d = p.parseFromString(normalizeWpMarkup(html), 'text/html');
-        d.querySelectorAll(PRELOADER_SELECTOR_STRING).forEach(el => el.remove());
-        d.querySelectorAll('[data-aos], [data-aos-delay], [data-aos-duration], [data-aos-offset], [data-aos-anchor], [data-aos-anchor-placement], [data-aos-easing], [data-aos-once]').forEach(el => {
+        // Wrap in a div to prevent DOMParser from moving <style> to <head>
+        const d = p.parseFromString(`<div id="ztt-temp-wrap">${normalizeWpMarkup(html)}</div>`, 'text/html');
+        const wrap = d.getElementById('ztt-temp-wrap');
+        if (!wrap) return normalizeWpMarkup(html);
+
+        wrap.querySelectorAll(PRELOADER_SELECTOR_STRING).forEach(el => el.remove());
+        wrap.querySelectorAll('[data-aos], [data-aos-delay], [data-aos-duration], [data-aos-offset], [data-aos-anchor], [data-aos-anchor-placement], [data-aos-easing], [data-aos-once]').forEach(el => {
           [
             'data-aos',
             'data-aos-delay',
@@ -782,7 +786,7 @@ function App({ postId }) {
           ].forEach(attr => el.removeAttribute(attr));
           el.classList.remove('aos-init', 'aos-animate');
         });
-        return d.body.innerHTML;
+        return wrap.innerHTML;
       };
 
       editor.setComponents(stripPreloaders(htmlContent));
