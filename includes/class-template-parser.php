@@ -45,6 +45,8 @@ class ZTT_Template_Parser
         $this->rewrite_paths($doc, 'source', 'srcset');
         $this->rewrite_paths($doc, 'object', 'data');
         
+        $this->rewrite_inline_styles($doc);
+        
         $this->rewrite_links($doc);
 
         $head_inner = '';
@@ -175,6 +177,44 @@ class ZTT_Template_Parser
                     } else {
                         $el->setAttribute('href', "ZTT_HOME_URL_PLACEHOLDER/" . $slug . "/");
                     }
+                }
+            }
+        }
+    }
+
+    private function rewrite_inline_styles($doc)
+    {
+        $elements = $doc->getElementsByTagName('*');
+        foreach ($elements as $el) {
+            if ($el->hasAttribute('style')) {
+                $style = $el->getAttribute('style');
+                // Regex to find url(...)
+                $new_style = preg_replace_callback(
+                    '/url\s*\(\s*([\'"]?)(.*?)\1\s*\)/i',
+                    function ($matches) {
+                        $quote = $matches[1];
+                        $url = $matches[2];
+
+                        // Skip absolute URLs, data URIs, etc.
+                        if (preg_match('/^(http|https|data|ftp|mailto|tel):/i', $url) || strpos($url, '//') === 0 || strpos($url, '#') === 0 || empty($url)) {
+                            return $matches[0];
+                        }
+
+                        $decoded_url = urldecode(ltrim($url, '/'));
+
+                        if (isset($this->image_map[$decoded_url])) {
+                            return 'url(' . $quote . $this->image_map[$decoded_url] . $quote . ')';
+                        } else {
+                            // Fallback to static theme assets directory
+                            $url = ltrim($url, '/');
+                            return 'url(' . $quote . 'ZTT_THEME_URI_PLACEHOLDER/assets/' . $url . $quote . ')';
+                        }
+                    },
+                    $style
+                );
+                
+                if ($new_style !== $style) {
+                    $el->setAttribute('style', $new_style);
                 }
             }
         }

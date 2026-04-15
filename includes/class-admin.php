@@ -106,6 +106,7 @@ class ZTT_Admin
                     'nonce'  => wp_create_nonce('wp_rest'),
                     'mediaUploadUrl' => admin_url('admin-ajax.php?action=ztt_media_upload'),
                     'mediaUploadNonce' => wp_create_nonce('ztt_media_upload'),
+                    'mediaListUrl' => rest_url('wp/v2/media'),
                     'frontendUrl' => $post_id ? get_permalink($post_id) : ''
                 ]);
             }

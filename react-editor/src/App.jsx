@@ -743,6 +743,24 @@ function App({ postId }) {
           style.textContent = preloaderCssRule();
           doc.head.appendChild(style);
         }
+
+        // Fetch WordPress Media Library and populate GrapesJS Asset Manager
+        if (window.zttData?.mediaListUrl) {
+          axios.get(`${window.zttData.mediaListUrl}?per_page=100`, {
+            headers: { 'X-WP-Nonce': window.zttData.nonce }
+          }).then(res => {
+            if (Array.isArray(res.data)) {
+              const assets = res.data.map(item => ({
+                src: item.source_url,
+                type: 'image',
+                name: item.title?.rendered || 'Image',
+                height: item.media_details?.height,
+                width: item.media_details?.width,
+              }));
+              editor.AssetManager.add(assets);
+            }
+          }).catch(err => console.error('Failed to load Media Library into AssetManager', err));
+        }
       });
 
       editor._postId = postId;

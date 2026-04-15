@@ -74,7 +74,8 @@ class ZTT_Theme_Generator
         file_put_contents($theme_path . '/index.php', $index_php);
 
         $asset = new ZTT_Asset_Manager();
-        $asset->copy_assets($data['assets'], $theme_path, $data['base_path']);
+        $image_map = isset($image_map) ? $image_map : [];
+        $asset->copy_assets($data['assets'], $theme_path, $data['base_path'], $image_map);
 
         $abs_theme_uri = get_theme_root_uri() . '/' . $slug;
         $abs_home_url = untrailingslashit(home_url());

@@ -5,7 +5,7 @@ if (!defined('ABSPATH'))
 class ZTT_Asset_Manager
 {
 
-    public function copy_assets($assets, $theme_path, $base_path)
+    public function copy_assets($assets, $theme_path, $base_path, $image_map = [])
     {
 
         foreach ($assets as $file) {
@@ -24,6 +24,9 @@ class ZTT_Asset_Manager
             // Post-process CSS: fix opacity:0 patterns that leave content invisible.
             if (strtolower(pathinfo($dest, PATHINFO_EXTENSION)) === 'css') {
                 $this->fix_animation_css($dest);
+                if (!empty($image_map)) {
+                    $this->rewrite_css_images($dest, $image_map, $base_path, $file);
+                }
             }
         }
     }
@@ -144,4 +147,61 @@ class ZTT_Asset_Manager
         }
     }
 
+    private function rewrite_css_images($css_file, $image_map, $base_path, $original_css_path)
+    {
+        $css = file_get_contents($css_file);
+        if ($css === false) return;
+        
+        $original_css_dir = dirname($original_css_path);
+
+        $new_css = preg_replace_callback(
+            '/url\s*\(\s*([\'"]?)(.*?)\1\s*\)/i',
+            function ($matches) use ($image_map, $base_path, $original_css_dir) {
+                $quote = $matches[1];
+                $url = $matches[2];
+
+                if (preg_match('/^(http|https|data|ftp|mailto|tel):/i', $url) || strpos($url, '//') === 0 || strpos($url, '#') === 0 || empty($url)) {
+                    return $matches[0];
+                }
+
+                $absolute_target = $this->normalize_path($original_css_dir . DIRECTORY_SEPARATOR . $url);
+                $rel_to_base = str_replace(untrailingslashit($base_path) . DIRECTORY_SEPARATOR, '', $absolute_target);
+                
+                // Also try with forward slashes just in case
+                $rel_to_base_fwd = str_replace('\\', '/', $rel_to_base);
+
+                if (isset($image_map[$rel_to_base]) || isset($image_map[$rel_to_base_fwd])) {
+                    $final_url = isset($image_map[$rel_to_base]) ? $image_map[$rel_to_base] : $image_map[$rel_to_base_fwd];
+                    return 'url(' . $quote . $final_url . $quote . ')';
+                }
+                
+                return $matches[0];
+            },
+            $css
+        );
+
+        if ($new_css !== $css) {
+            file_put_contents($css_file, $new_css);
+        }
+    }
+
+    private function normalize_path($path) {
+        $path = str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $path);
+        
+        // Handle root
+        $is_absolute = strpos($path, DIRECTORY_SEPARATOR) === 0;
+        
+        $parts = array_filter(explode(DIRECTORY_SEPARATOR, $path), 'strlen');
+        $absolutes = [];
+        foreach ($parts as $part) {
+            if ('.' == $part) continue;
+            if ('..' == $part) {
+                array_pop($absolutes);
+            } else {
+                $absolutes[] = $part;
+            }
+        }
+        $prefix = $is_absolute ? DIRECTORY_SEPARATOR : '';
+        return $prefix . implode(DIRECTORY_SEPARATOR, $absolutes);
+    }
 }
