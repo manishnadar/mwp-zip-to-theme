@@ -656,6 +656,11 @@ function App({ postId }) {
         height: '100%',
         width: '100%',
         storageManager: false,
+        assetManager: {
+          upload: window.zttData?.mediaUploadUrl || '',
+          uploadName: 'files',
+          headers: { 'X-WP-Nonce': window.zttData?.mediaUploadNonce || '' }
+        },
         modal: {
           appendTo: document.body,    // ← escape overflow:hidden stacking context
         },

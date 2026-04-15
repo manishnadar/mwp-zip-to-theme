@@ -12,6 +12,7 @@ class ZTT_Admin
         add_action('admin_post_ztt_convert', [$this, 'handle_conversion']);
         add_action('wp_ajax_ztt_convert', [$this, 'ajax_convert']);
         add_action('wp_ajax_ztt_convert_progress', [$this, 'ajax_progress']);
+        add_action('wp_ajax_ztt_media_upload', [$this, 'ajax_media_upload']);
         
         // Add row actions
         add_filter('page_row_actions', [$this, 'add_visual_editor_link'], 10, 2);
@@ -103,6 +104,8 @@ class ZTT_Admin
                     'apiUrl' => rest_url("wp/v2/{$api_base}/"),
                     'proxyUrl' => rest_url('ztt/v1/claude'),
                     'nonce'  => wp_create_nonce('wp_rest'),
+                    'mediaUploadUrl' => admin_url('admin-ajax.php?action=ztt_media_upload'),
+                    'mediaUploadNonce' => wp_create_nonce('ztt_media_upload'),
                     'frontendUrl' => $post_id ? get_permalink($post_id) : ''
                 ]);
             }
@@ -177,6 +180,54 @@ class ZTT_Admin
                 'message' => $e->getMessage(),
             ], 500);
         }
+    }
+
+    public function ajax_media_upload()
+    {
+        if (!current_user_can('upload_files')) {
+            wp_send_json_error(['message' => 'Unauthorized'], 403);
+        }
+
+        $nonce = $_SERVER['HTTP_X_WP_NONCE'] ?? $_POST['_wpnonce'] ?? '';
+        if (!$nonce || !wp_verify_nonce($nonce, 'ztt_media_upload')) {
+            wp_send_json_error(['message' => 'Invalid nonce'], 403);
+        }
+
+        $files = $_FILES['files'] ?? null;
+        if (!$files) {
+            wp_send_json_error(['message' => 'No files provided']);
+        }
+
+        require_once(ABSPATH . 'wp-admin/includes/image.php');
+        require_once(ABSPATH . 'wp-admin/includes/file.php');
+        require_once(ABSPATH . 'wp-admin/includes/media.php');
+
+        $uploaded_urls = [];
+
+        if (is_array($files['name'])) {
+            $count = count($files['name']);
+            for ($i = 0; $i < $count; $i++) {
+                $file = [
+                    'name'     => $files['name'][$i],
+                    'type'     => $files['type'][$i],
+                    'tmp_name' => $files['tmp_name'][$i],
+                    'error'    => $files['error'][$i],
+                    'size'     => $files['size'][$i]
+                ];
+                $attachment_id = media_handle_sideload($file, 0);
+                if (!is_wp_error($attachment_id)) {
+                    $uploaded_urls[] = wp_get_attachment_url($attachment_id);
+                }
+            }
+        } else {
+            $attachment_id = media_handle_sideload($files, 0);
+            if (!is_wp_error($attachment_id)) {
+                $uploaded_urls[] = wp_get_attachment_url($attachment_id);
+            }
+        }
+
+        // GrapesJS expects the structure { data: ["url1", "url2"] }
+        wp_send_json(['data' => $uploaded_urls]);
     }
 
     public function ajax_progress()
