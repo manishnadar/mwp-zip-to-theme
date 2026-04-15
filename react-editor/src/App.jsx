@@ -1027,7 +1027,12 @@ function App({ postId }) {
             onSelect(asset) {
               const src = asset?.get ? asset.get('src') : asset?.src;
               if (!src) return;
-              selected.addAttributes({ src });
+              // Setting src this way allows GrapesJS to re-render the image model
+              if (selected.is('image')) {
+                selected.set('src', src);
+              } else {
+                selected.addAttributes({ src });
+              }
               editor.AssetManager.close();
             },
           });
