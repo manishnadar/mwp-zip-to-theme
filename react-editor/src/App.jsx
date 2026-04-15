@@ -728,7 +728,7 @@ function App({ postId }) {
           [typedPlugin]: {},
           [styleBgPlugin]: {},
         },
-        canvas: { 
+        canvas: {
           styles: cssLinks,
           scripts: [
             'https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js'
@@ -828,7 +828,7 @@ function App({ postId }) {
         .gjs-pn-panel.gjs-one-bg,
         .gjs-pn-views-container.gjs-one-bg,
         .gjs-pn-views.gjs-one-bg {
-          background-color: transparent !important;
+          background-color: #0d0e26 !important;
           background-image: none !important;
         }
         .gjs-two-bg   { background-color: #13131e !important; }
