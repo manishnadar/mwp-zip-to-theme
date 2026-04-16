@@ -89,11 +89,44 @@ class ZTT_Template_Parser
             // Strip static and custom preloaders before saving page content.
             $this->strip_preloaders($doc, $body_node);
 
+            // Try to find semantic <header> first
             $headers = $body_node->getElementsByTagName('header');
             if ($headers->length > 0) {
                 $header_node = $headers->item(0);
                 $header_html = $doc->saveHTML($header_node);
                 $header_node->parentNode->removeChild($header_node);
+            } else {
+                // Fallback: Check for <nav> or specific navigation containers at the start of the body
+                $header_nodes = [];
+                foreach ($body_node->childNodes as $child) {
+                    if ($child->nodeType === XML_TEXT_NODE && trim($child->textContent) === '') {
+                        continue;
+                    }
+                    if ($child->nodeType === XML_ELEMENT_NODE) {
+                        $tag = strtolower($child->nodeName);
+                        $class = $child instanceof DOMElement ? (string)$child->getAttribute('class') : '';
+                        $id = $child instanceof DOMElement ? (string)$child->getAttribute('id') : '';
+                        
+                        // Heuristic for navigation elements
+                        if ($tag === 'nav' || strpos($class, 'nav') !== false || strpos($id, 'nav') !== false) {
+                            $header_nodes[] = $child;
+                        } else {
+                            // Stop at the first real "content" container
+                            if (in_array($tag, ['section', 'main', 'article', 'h1'])) {
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                if (!empty($header_nodes)) {
+                    foreach ($header_nodes as $node) {
+                        $header_html .= $doc->saveHTML($node) . "\n";
+                        if ($node->parentNode) {
+                            $node->parentNode->removeChild($node);
+                        }
+                    }
+                }
             }
 
             $footers = $body_node->getElementsByTagName('footer');
