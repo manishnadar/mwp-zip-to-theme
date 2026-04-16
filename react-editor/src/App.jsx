@@ -11,6 +11,7 @@ import countdownPlugin from 'grapesjs-component-countdown';
 import typedPlugin from 'grapesjs-typed';
 import styleBgPlugin from 'grapesjs-style-bg';
 import axios from 'axios';
+import AIChat from './components/AIChat';
 import registerModules from './modules';
 import ThemeColorPanel, { getThemeCssVars } from './components/ThemeColorPanel';
 import './App.css';
@@ -1123,6 +1124,17 @@ function App({ postId }) {
 
       {/* ── Main content row ── */}
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+
+        {/* AI Chat sidebar */}
+        <div style={{
+          width: 300, flexShrink: 0,
+          borderRight: '1px solid var(--border-subtle)',
+          background: 'var(--bg-panel)',
+          zIndex: 100,
+          display: 'flex', flexDirection: 'column',
+        }}>
+          {editorInstance ? <AIChat editor={editorInstance} /> : null}
+        </div>
 
         {/* Canvas */}
         <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
