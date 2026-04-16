@@ -107,7 +107,8 @@ class ZTT_Admin
                     'mediaUploadUrl' => admin_url('admin-ajax.php?action=ztt_media_upload'),
                     'mediaUploadNonce' => wp_create_nonce('ztt_media_upload'),
                     'mediaListUrl' => rest_url('wp/v2/media'),
-                    'frontendUrl' => $post_id ? get_permalink($post_id) : ''
+                    'frontendUrl' => $post_id ? get_permalink($post_id) : '',
+                    'allowedDomains' => array_map('trim', explode(',', ZTT_ALLOWED_DOMAINS)),
                 ]);
             }
             if (file_exists($css_path)) {
