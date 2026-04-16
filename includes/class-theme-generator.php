@@ -74,7 +74,8 @@ class ZTT_Theme_Generator
         file_put_contents($theme_path . '/index.php', $index_php);
 
         $asset = new ZTT_Asset_Manager();
-        $asset->copy_assets($data['assets'], $theme_path, $data['base_path']);
+        $image_map = isset($image_map) ? $image_map : [];
+        $asset->copy_assets($data['assets'], $theme_path, $data['base_path'], $image_map);
 
         $abs_theme_uri = get_theme_root_uri() . '/' . $slug;
         $abs_home_url = untrailingslashit(home_url());
@@ -87,6 +88,18 @@ class ZTT_Theme_Generator
             $file_slug = pathinfo($file, PATHINFO_FILENAME);
             $page_title = $parsed['title'];
             $body = isset($parsed['body']) ? $parsed['body'] : '';
+
+            // Prepend any per-page <style> AND <script> blocks from the original HTML <head>
+            $page_head_styles = isset($parsed['head_styles']) ? $parsed['head_styles'] : '';
+            $page_head_scripts = isset($parsed['head_scripts']) ? $parsed['head_scripts'] : '';
+            
+            if ($page_head_styles || $page_head_scripts) {
+                $injection = "<!-- wp:html -->\n";
+                if ($page_head_styles) $injection .= $page_head_styles . "\n";
+                if ($page_head_scripts) $injection .= $page_head_scripts . "\n";
+                $injection .= "<!-- /wp:html -->\n";
+                $body = $injection . $body;
+            }
 
             $body = str_replace("ZTT_THEME_URI_PLACEHOLDER", $abs_theme_uri, $body);
             $body = str_replace("ZTT_HOME_URL_PLACEHOLDER", $abs_home_url, $body);
@@ -118,8 +131,6 @@ class ZTT_Theme_Generator
 
         $extractor = new ZTT_Extractor();
         $extractor->cleanup($data['base_path']);
-
-        ZTT_Logger::save();
     }
 
     private function style($opt)

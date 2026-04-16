@@ -45,9 +45,13 @@ class ZTT_Template_Parser
         $this->rewrite_paths($doc, 'source', 'srcset');
         $this->rewrite_paths($doc, 'object', 'data');
         
+        $this->rewrite_inline_styles($doc);
+        
         $this->rewrite_links($doc);
 
         $head_inner = '';
+        $head_styles = '';
+        $head_scripts = '';
         $body_inner = '';
         $header_html = '';
         $footer_html = '';
@@ -55,8 +59,26 @@ class ZTT_Template_Parser
 
         $heads = $doc->getElementsByTagName('head');
         if ($heads->length > 0) {
-            foreach ($heads->item(0)->childNodes as $child) {
-                $head_inner .= $doc->saveHTML($child);
+            $head_node = $heads->item(0);
+            // Extract <style> and <script> tags separately for per-page injection
+            $nodes_to_remove = [];
+            foreach ($head_node->childNodes as $child) {
+                $node_name = strtolower($child->nodeName);
+                if ($node_name === 'style') {
+                    $head_styles .= $doc->saveHTML($child);
+                    $nodes_to_remove[] = $child;
+                } elseif ($node_name === 'script') {
+                    $head_scripts .= $doc->saveHTML($child);
+                    $nodes_to_remove[] = $child;
+                } else {
+                    $head_inner .= $doc->saveHTML($child);
+                }
+            }
+            // Remove nodes from DOM to avoid duplication in head_inner
+            foreach ($nodes_to_remove as $node) {
+                if ($node->parentNode) {
+                    $node->parentNode->removeChild($node);
+                }
             }
         }
 
@@ -67,11 +89,44 @@ class ZTT_Template_Parser
             // Strip static and custom preloaders before saving page content.
             $this->strip_preloaders($doc, $body_node);
 
+            // Try to find semantic <header> first
             $headers = $body_node->getElementsByTagName('header');
             if ($headers->length > 0) {
                 $header_node = $headers->item(0);
                 $header_html = $doc->saveHTML($header_node);
                 $header_node->parentNode->removeChild($header_node);
+            } else {
+                // Fallback: Check for <nav> or specific navigation containers at the start of the body
+                $header_nodes = [];
+                foreach ($body_node->childNodes as $child) {
+                    if ($child->nodeType === XML_TEXT_NODE && trim($child->textContent) === '') {
+                        continue;
+                    }
+                    if ($child->nodeType === XML_ELEMENT_NODE) {
+                        $tag = strtolower($child->nodeName);
+                        $class = $child instanceof DOMElement ? (string)$child->getAttribute('class') : '';
+                        $id = $child instanceof DOMElement ? (string)$child->getAttribute('id') : '';
+                        
+                        // Heuristic for navigation elements
+                        if ($tag === 'nav' || strpos($class, 'nav') !== false || strpos($id, 'nav') !== false) {
+                            $header_nodes[] = $child;
+                        } else {
+                            // Stop at the first real "content" container
+                            if (in_array($tag, ['section', 'main', 'article', 'h1'])) {
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                if (!empty($header_nodes)) {
+                    foreach ($header_nodes as $node) {
+                        $header_html .= $doc->saveHTML($node) . "\n";
+                        if ($node->parentNode) {
+                            $node->parentNode->removeChild($node);
+                        }
+                    }
+                }
             }
 
             $footers = $body_node->getElementsByTagName('footer');
@@ -82,16 +137,18 @@ class ZTT_Template_Parser
             }
 
             foreach ($body_node->childNodes as $child) {
-                if ($child->nodeName === 'script') {
-                    // Collect external script src paths for wp_enqueue_script generation
+                $tag = strtolower($child->nodeName);
+
+                if ($tag === 'script') {
+                    // Still collect external script src paths for global enqueuing 
+                    // (useful for core dependencies found in the master page body)
                     if ($child instanceof DOMElement && $child->hasAttribute('src')) {
                         $body_scripts[] = $child->getAttribute('src');
                     }
-                    continue;
+                    // DO NOT continue/skip here. Let the script be rendered as <!-- wp:html --> below
                 }
                 
                 $html = $doc->saveHTML($child);
-                $tag = strtolower($child->nodeName);
                 
                 // Skip empty text nodes between tags
                 if ($child->nodeType === XML_TEXT_NODE && trim($child->textContent) === '') {
@@ -126,6 +183,8 @@ class ZTT_Template_Parser
         return [
             'title'        => $title,
             'head'         => $head_inner,
+            'head_styles'  => $head_styles,
+            'head_scripts' => $head_scripts,
             'header'       => $header_html,
             'footer'       => $footer_html,
             'body'         => $body_inner,
@@ -175,6 +234,49 @@ class ZTT_Template_Parser
                     } else {
                         $el->setAttribute('href', "ZTT_HOME_URL_PLACEHOLDER/" . $slug . "/");
                     }
+                }
+            }
+        }
+    }
+
+    private function rewrite_inline_styles($doc)
+    {
+        $elements = $doc->getElementsByTagName('*');
+        
+        $rewrite_callback = function ($matches) {
+            $quote = $matches[1];
+            $url = $matches[2];
+
+            // Skip absolute URLs, data URIs, etc.
+            if (preg_match('/^(http|https|data|ftp|mailto|tel):/i', $url) || strpos($url, '//') === 0 || strpos($url, '#') === 0 || empty($url)) {
+                return $matches[0];
+            }
+
+            $decoded_url = urldecode(ltrim($url, '/'));
+
+            if (isset($this->image_map[$decoded_url])) {
+                return 'url(' . $quote . $this->image_map[$decoded_url] . $quote . ')';
+            } else {
+                // Fallback to static theme assets directory
+                $url = ltrim($url, '/');
+                return 'url(' . $quote . 'ZTT_THEME_URI_PLACEHOLDER/assets/' . $url . $quote . ')';
+            }
+        };
+
+        foreach ($elements as $el) {
+            if ($el->nodeName === 'style') {
+                $css = $el->textContent;
+                $new_css = preg_replace_callback('/url\s*\(\s*([\'"]?)(.*?)\1\s*\)/i', $rewrite_callback, $css);
+                if ($new_css !== $css) {
+                    $el->textContent = $new_css;
+                }
+            }
+
+            if ($el->hasAttribute('style')) {
+                $style = $el->getAttribute('style');
+                $new_style = preg_replace_callback('/url\s*\(\s*([\'"]?)(.*?)\1\s*\)/i', $rewrite_callback, $style);
+                if ($new_style !== $style) {
+                    $el->setAttribute('style', $new_style);
                 }
             }
         }
