@@ -645,7 +645,7 @@ function calcScore(fields) {
     checks.push({ ok: false, label: 'No social image set' });
   }
   if (fields.schema_type) {
-    score += Math.min(score, 5); // small bonus for having schema
+    score += 5; // small fixed bonus for having schema configured
     checks.push({ ok: true, label: `Schema markup is configured (${fields.schema_type})` });
   } else {
     checks.push({ ok: false, label: 'No structured data (Schema) configured' });
@@ -751,10 +751,10 @@ function SchemaTab({ schemaType, schemaJson, onTypeChange, onJsonChange }) {
         <select
           value={schemaType}
           onChange={e => { onTypeChange(e.target.value); onJsonChange({}); }}
-          style={{ ...inputStyle, appearance: 'auto' }}
+          style={{ ...inputStyle, appearance: 'auto', backgroundColor: '#0d1117', color: '#e5e7eb' }}
         >
           {Object.entries(SCHEMA_TYPES).map(([k, v]) => (
-            <option key={k} value={k}>{v.label}</option>
+            <option key={k} value={k} style={{ backgroundColor: '#0d1117', color: '#e5e7eb' }}>{v.label}</option>
           ))}
         </select>
       </Field>

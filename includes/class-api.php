@@ -12,9 +12,112 @@ class ZTT_API {
     /** JSON-blob meta keys (stored raw, not sanitize_text_field) */
     const JSON_KEYS = ['schema_json', 'social_cards'];
 
+    /**
+     * Detect common SEO plugins that already own head/meta output.
+     * When any of these are active we step back completely to avoid conflicts.
+     */
+    private function has_external_seo_plugin() {
+        return (
+            defined('WPSEO_VERSION')              ||  // Yoast SEO / Yoast SEO Premium
+            defined('RANK_MATH_VERSION')          ||  // Rank Math
+            defined('AIOSEO_VERSION')             ||  // All in One SEO (v4+)
+            defined('AIOSP_VERSION')              ||  // All in One SEO (legacy v3)
+            defined('SEOPRESS_VERSION')           ||  // SEOPress
+            defined('THE_SEO_FRAMEWORK_VERSION')  ||  // The SEO Framework
+            defined('SQ_VERSION')                     // Squirrly SEO
+        );
+    }
+
+    /**
+     * Should ZTT own SEO output for this request?
+     * Returns false when an external SEO plugin is active.
+     * Can be overridden: add_filter('ztt_should_output_seo_meta', '__return_true');
+     */
+    private function should_output_ztt_seo($post_id) {
+        $default = !$this->has_external_seo_plugin();
+        return (bool) apply_filters('ztt_should_output_seo_meta', $default, $post_id);
+    }
+
     public function __construct() {
-        add_action('rest_api_init', [$this, 'register_routes']);
-        add_action('wp_head',       [$this, 'output_seo_meta'], 1);
+        add_action('rest_api_init',          [$this, 'register_routes']);
+        add_action('wp_head',                [$this, 'output_seo_meta'],       2);
+        add_filter('pre_get_document_title', [$this, 'filter_document_title'], 999);
+        add_filter('wp_robots',              [$this, 'filter_wp_robots'],       999);
+        add_filter('get_canonical_url',      [$this, 'filter_canonical_url'],   999, 2);
+        // Deduplicate <title> tags: handles themes that hardcode <title> in header.php
+        // alongside WordPress's own _wp_render_title_tag output from wp_head().
+        add_action('template_redirect',      [$this, 'start_title_dedup_buffer'], 0);
+    }
+
+    /**
+     * Start an output buffer that removes duplicate <title> tags.
+     * Themes converted from static HTML often hardcode <title> in header.php;
+     * WordPress also emits one via _wp_render_title_tag(). When both are present
+     * and our SEO title differs from the original, view-source shows two <title>s.
+     * This buffer fires only when a ZTT SEO title is actually saved.
+     */
+    public function start_title_dedup_buffer() {
+        if (is_admin()) return;
+        $post_id = get_queried_object_id();
+        if (!$post_id || !$this->should_output_ztt_seo($post_id)) return;
+        $seo_title = get_post_meta($post_id, '_ztt_seo_title', true);
+        if (!$seo_title) return;
+
+        ob_start(function($html) use ($seo_title) {
+            preg_match_all('/<title[^>]*>.*?<\/title>/is', $html, $matches);
+            if (count($matches[0]) <= 1) return $html;
+            // Remove all <title> tags then re-insert exactly one after <head>.
+            $html = preg_replace('/<title[^>]*>.*?<\/title>/is', '', $html);
+            return preg_replace(
+                '/(<head[^>]*>)/i',
+                '$1' . "\n<title>" . esc_html($seo_title) . '</title>',
+                $html, 1
+            );
+        });
+    }
+
+    /**
+     * Override the page <title> with the ZTT SEO title when available.
+     * Only fires on singular posts/pages to avoid clobbering archive titles.
+     */
+    public function filter_document_title($title) {
+        if (is_admin() || !is_singular()) return $title;
+        $post_id   = get_queried_object_id();
+        if (!$post_id || !$this->should_output_ztt_seo($post_id)) return $title;
+        $seo_title = get_post_meta($post_id, '_ztt_seo_title', true);
+        return $seo_title ?: $title;
+    }
+
+    /**
+     * Apply noindex / nofollow via WordPress's native robots API.
+     * Only fires on singular posts/pages — index/follow settings are per-post.
+     */
+    public function filter_wp_robots($robots) {
+        if (is_admin() || !is_singular()) return $robots;
+        $post_id = get_queried_object_id();
+        if (!$post_id || !$this->should_output_ztt_seo($post_id)) return $robots;
+
+        if (get_post_meta($post_id, '_ztt_seo_robots_noindex', true) === '1') {
+            $robots['noindex'] = true;
+            unset($robots['index']);
+        }
+        if (get_post_meta($post_id, '_ztt_seo_robots_nofollow', true) === '1') {
+            $robots['nofollow'] = true;
+            unset($robots['follow']);
+        }
+        return $robots;
+    }
+
+    /**
+     * Replace the canonical URL via WP's own filter so core prints the
+     * single <link rel="canonical"> — no duplicate tags.
+     */
+    public function filter_canonical_url($canonical_url, $post) {
+        if (is_admin()) return $canonical_url;
+        $post_id = is_object($post) && !empty($post->ID) ? (int) $post->ID : get_queried_object_id();
+        if (!$post_id || !$this->should_output_ztt_seo($post_id)) return $canonical_url;
+        $seo_canonical = get_post_meta($post_id, '_ztt_seo_canonical', true);
+        return $seo_canonical ? esc_url_raw($seo_canonical) : $canonical_url;
     }
 
     public function register_routes() {
@@ -101,16 +204,17 @@ class ZTT_API {
         if (is_admin()) return;
         $post_id = get_queried_object_id();
         if (!$post_id) return;
+        // Strict single-source mode: back off if an external SEO plugin owns output.
+        if (!$this->should_output_ztt_seo($post_id)) return;
 
         $gmeta = function($key) use ($post_id) {
             return get_post_meta($post_id, '_ztt_seo_' . $key, true) ?: '';
         };
 
-        $title    = $gmeta('title');
-        $desc     = $gmeta('description');
-        $canonical = $gmeta('canonical');
-        $noindex  = $gmeta('robots_noindex');
-        $nofollow = $gmeta('robots_nofollow');
+        $title       = $gmeta('title');
+        $desc        = $gmeta('description');
+        $canonical   = $gmeta('canonical');
+        $schema_type = get_post_meta($post_id, '_ztt_seo_schema_type', true) ?: '';
 
         // social_cards — array of { platform, title, description, image }
         $cards_raw    = get_post_meta($post_id, '_ztt_social_cards', true) ?: '[]';
@@ -132,23 +236,13 @@ class ZTT_API {
         $tw_d = esc_attr($tw_card['description']  ?? $og_d);
         $tw_i = esc_url($tw_card['image']         ?? $og_i);
 
-        // Only output if at least one field is set
-        if (!$title && !$desc && !$canonical && !$og_t && !$og_i && !$social_cards) return;
+        // Only output if at least one relevant field is set.
+        if (!$title && !$desc && !$canonical && !$og_t && !$og_i && !$social_cards && !$schema_type) return;
 
         echo "\n<!-- ZTT SEO Meta -->\n";
 
-        if ($title) {
-            echo '<title>' . esc_html($title) . '</title>' . "\n";
-        }
         if ($desc) {
             echo '<meta name="description" content="' . esc_attr($desc) . '">' . "\n";
-        }
-
-        $robots_parts = [($noindex === '1' ? 'noindex' : 'index'), ($nofollow === '1' ? 'nofollow' : 'follow')];
-        echo '<meta name="robots" content="' . implode(', ', $robots_parts) . '">' . "\n";
-
-        if ($canonical) {
-            echo '<link rel="canonical" href="' . esc_url($canonical) . '">' . "\n";
         }
 
         // Open Graph
@@ -156,7 +250,9 @@ class ZTT_API {
         if ($og_d) echo '<meta property="og:description" content="' . $og_d . '">' . "\n";
         if ($og_i) echo '<meta property="og:image" content="'       . $og_i . '">' . "\n";
         echo '<meta property="og:type" content="website">' . "\n";
-        echo '<meta property="og:url" content="' . esc_url(get_permalink($post_id)) . '">' . "\n";
+        // og:url should match canonical — use saved canonical if set, else permalink
+        $og_url = $canonical ? esc_url($canonical) : esc_url(get_permalink($post_id));
+        echo '<meta property="og:url" content="' . $og_url . '">' . "\n";
 
         // Twitter Card
         echo '<meta name="twitter:card" content="' . ($tw_i ? 'summary_large_image' : 'summary') . '">' . "\n";
@@ -167,7 +263,6 @@ class ZTT_API {
         echo "<!-- /ZTT SEO Meta -->\n";
 
         // ── Structured Data (JSON-LD) ──────────────────────────────────────
-        $schema_type = get_post_meta($post_id, '_ztt_seo_schema_type', true) ?: '';
         if (!$schema_type) return;
 
         $raw_json = get_post_meta($post_id, '_ztt_schema_json', true) ?: '{}';
