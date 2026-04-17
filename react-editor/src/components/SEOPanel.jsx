@@ -437,6 +437,174 @@ function buildJsonLd(schemaType, schemaJson) {
   return ld;
 }
 
+/* ── Parse existing meta tags from the page's HTML ───────────────────────── */
+function parsePageMeta(html) {
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  const h   = doc.head;
+  const metaName = (n)  => h.querySelector(`meta[name="${n}"]`)?.getAttribute('content') || '';
+  const metaProp = (p)  => h.querySelector(`meta[property="${p}"]`)?.getAttribute('content') || '';
+
+  const robots   = metaName('robots').toLowerCase();
+  const ogImage  = metaProp('og:image');
+  const twImage  = metaName('twitter:image') || metaName('twitter:image:src');
+
+  // Build social cards from OG / Twitter tags found in the page
+  const socialCards = [];
+  const ogTitle = metaProp('og:title');
+  const ogDesc  = metaProp('og:description');
+  if (ogTitle || ogDesc || ogImage) {
+    socialCards.push({ platform: 'og', title: ogTitle, description: ogDesc, image: ogImage });
+  }
+  const twTitle = metaName('twitter:title');
+  const twDesc  = metaName('twitter:description');
+  if (twTitle || twDesc || twImage) {
+    socialCards.push({ platform: 'twitter', title: twTitle, description: twDesc, image: twImage });
+  }
+  if (!socialCards.length) {
+    socialCards.push(
+      { platform: 'og',      title: '', description: '', image: '' },
+      { platform: 'twitter', title: '', description: '', image: '' },
+    );
+  }
+
+  // Try to extract JSON-LD schema
+  let schemaType = '';
+  let schemaJson = {};
+  const ldScripts = Array.from(h.querySelectorAll('script[type="application/ld+json"]'));
+  for (const script of ldScripts) {
+    try {
+      const ld = JSON.parse(script.textContent);
+      const t  = ld['@type'] || '';
+      if (t && SCHEMA_TYPES[t]) {
+        schemaType = t;
+        schemaJson = extractSchemaFromLd(ld, t);
+        break;
+      }
+    } catch (_) { /* ignore malformed JSON-LD */ }
+  }
+
+  return {
+    title:           h.querySelector('title')?.textContent?.trim() || '',
+    description:     metaName('description'),
+    canonical:       h.querySelector('link[rel="canonical"]')?.getAttribute('href') || '',
+    robots_noindex:  robots.includes('noindex')  ? '1' : '0',
+    robots_nofollow: robots.includes('nofollow') ? '1' : '0',
+    socialCards,
+    schemaType,
+    schemaJson,
+  };
+}
+
+/** Reverse-map a schema.org JSON-LD object back into our form field keys. */
+function extractSchemaFromLd(ld, type) {
+  const str = (v) => (typeof v === 'string' ? v : '');
+  const imgUrl = (v) => (typeof v === 'string' ? v : str(v?.url));
+
+  switch (type) {
+    case 'Article':
+    case 'BlogPosting':
+    case 'NewsArticle':
+      return {
+        headline:       str(ld.headline),
+        description:    str(ld.description),
+        image:          imgUrl(ld.image),
+        author_name:    str(ld.author?.name),
+        author_url:     str(ld.author?.url),
+        publisher_name: str(ld.publisher?.name),
+        publisher_logo: imgUrl(ld.publisher?.logo),
+        date_published: str(ld.datePublished),
+        date_modified:  str(ld.dateModified),
+      };
+    case 'WebSite':
+      return {
+        name:       str(ld.name),
+        url:        str(ld.url),
+        description:str(ld.description),
+        search_url: str(ld.potentialAction?.target?.urlTemplate || ld.potentialAction?.target),
+      };
+    case 'WebPage':
+      return { name: str(ld.name), description: str(ld.description), url: str(ld.url) };
+    case 'LocalBusiness': {
+      const a = ld.address || {};
+      return {
+        name: str(ld.name), type: str(ld['@type'] !== 'LocalBusiness' ? ld['@type'] : ''),
+        description: str(ld.description), image: imgUrl(ld.image),
+        url: str(ld.url), telephone: str(ld.telephone), email: str(ld.email),
+        street: str(a.streetAddress), city: str(a.addressLocality),
+        state: str(a.addressRegion), postal_code: str(a.postalCode),
+        country: str(a.addressCountry), price_range: str(ld.priceRange),
+        opening_hours: Array.isArray(ld.openingHours) ? ld.openingHours.join(', ') : str(ld.openingHours),
+      };
+    }
+    case 'Organization': {
+      const sameAs = Array.isArray(ld.sameAs) ? ld.sameAs : [];
+      return {
+        name: str(ld.name), url: str(ld.url),
+        logo: imgUrl(ld.logo), description: str(ld.description),
+        email: str(ld.email), telephone: str(ld.telephone),
+        social_facebook:  sameAs.find(u => u.includes('facebook'))  || '',
+        social_twitter:   sameAs.find(u => u.includes('twitter') || u.includes('x.com')) || '',
+        social_linkedin:  sameAs.find(u => u.includes('linkedin'))  || '',
+        social_instagram: sameAs.find(u => u.includes('instagram')) || '',
+      };
+    }
+    case 'Person': {
+      const sameAs = Array.isArray(ld.sameAs) ? ld.sameAs : [];
+      return {
+        name: str(ld.name), job_title: str(ld.jobTitle),
+        description: str(ld.description), image: imgUrl(ld.image),
+        email: str(ld.email), url: str(ld.url),
+        social_facebook: sameAs.find(u => u.includes('facebook'))  || '',
+        social_twitter:  sameAs.find(u => u.includes('twitter') || u.includes('x.com')) || '',
+        social_linkedin: sameAs.find(u => u.includes('linkedin'))  || '',
+      };
+    }
+    case 'Product': {
+      const offer = Array.isArray(ld.offers) ? ld.offers[0] : ld.offers;
+      const rating = ld.aggregateRating || {};
+      return {
+        name: str(ld.name), description: str(ld.description), image: imgUrl(ld.image),
+        brand: str(ld.brand?.name || ld.brand), sku: str(ld.sku),
+        price: str(offer?.price), currency: str(offer?.priceCurrency),
+        availability: (offer?.availability || '').replace('https://schema.org/', '') || 'InStock',
+        rating_value: str(rating.ratingValue), rating_count: str(rating.reviewCount),
+      };
+    }
+    case 'FAQPage': {
+      const entities = Array.isArray(ld.mainEntity) ? ld.mainEntity : [];
+      return { faq_pairs: entities.map(e => ({ question: str(e.name), answer: str(e.acceptedAnswer?.text) })) };
+    }
+    case 'BreadcrumbList': {
+      const items = Array.isArray(ld.itemListElement) ? ld.itemListElement : [];
+      return { breadcrumb_items: items.map(i => ({ name: str(i.name), url: str(i.item || i.id) })) };
+    }
+    case 'Service':
+      return {
+        name: str(ld.name), service_type: str(ld.serviceType),
+        description: str(ld.description), image: imgUrl(ld.image),
+        url: str(ld.url), area_served: str(ld.areaServed),
+        provider_name: str(ld.provider?.name), provider_url: str(ld.provider?.url),
+        price_range: str(ld.offers?.priceSpecification),
+      };
+    case 'Event': {
+      const loc = ld.location || {};
+      const a   = loc.address || {};
+      const off = ld.offers || {};
+      return {
+        name: str(ld.name), description: str(ld.description), image: imgUrl(ld.image),
+        url: str(ld.url), start_date: str(ld.startDate), end_date: str(ld.endDate),
+        event_status: (str(ld.eventStatus)).replace('https://schema.org/', ''),
+        event_attendance: (str(ld.eventAttendanceMode)).replace('https://schema.org/', ''),
+        location_name: str(loc.name), location_address: str(a.streetAddress),
+        location_city: str(a.addressLocality), location_country: str(a.addressCountry),
+        organizer_name: str(ld.organizer?.name), organizer_url: str(ld.organizer?.url),
+        offers_price: str(off.price), offers_currency: str(off.priceCurrency),
+      };
+    }
+    default: return {};
+  }
+}
+
 /* ── SEO Score ───────────────────────────────────────────────────────────── */
 function calcScore(fields) {
   let score = 0;
@@ -695,23 +863,74 @@ export default function SEOPanel({ postId }) {
     schema_type: '',
   });
   const [socialCards, setSocialCards] = useState(DEFAULT_SOCIAL_CARDS);
-  const [schemaJson, setSchemaJson] = useState({});
-  const [status, setStatus] = useState('idle');
-  const [errorMsg, setErrorMsg] = useState('');
+  const [schemaJson, setSchemaJson]   = useState({});
+  const [status, setStatus]           = useState('idle');
+  const [errorMsg, setErrorMsg]       = useState('');
+  const [imported, setImported]       = useState(false); // true when data was auto-read from page HTML
 
   useEffect(() => {
     if (!postId || !window.zttData?.seoApiUrl) return;
     setStatus('loading');
-    axios.get(`${window.zttData.seoApiUrl}${postId}`, {
-      headers: { 'X-WP-Nonce': window.zttData.nonce },
-    }).then(res => {
-      const { schema_json, social_cards, ...rest } = res.data;
-      if (!rest.canonical && window.zttData?.frontendUrl) {
-        rest.canonical = window.zttData.frontendUrl;
+
+    const apiReq  = axios.get(`${window.zttData.seoApiUrl}${postId}`, { headers: { 'X-WP-Nonce': window.zttData.nonce } });
+    const htmlReq = window.zttData?.frontendUrl
+      ? axios.get(window.zttData.frontendUrl).catch(() => null)
+      : Promise.resolve(null);
+
+    Promise.all([apiReq, htmlReq]).then(([apiRes, htmlRes]) => {
+      const { schema_json, social_cards, ...apiFields } = apiRes.data;
+
+      // Detect whether the user has ever saved SEO data via our plugin
+      const hasSavedData = Object.values(apiFields).some(v => v && v !== '0');
+      const hasSavedCards  = Array.isArray(social_cards) && social_cards.length > 0;
+      const hasSavedSchema = schema_json && typeof schema_json === 'object' && Object.keys(schema_json).length > 0;
+
+      // Parse meta from page HTML when plugin has no saved data yet
+      let pageMeta = null;
+      if (htmlRes?.data && (!hasSavedData || !hasSavedCards)) {
+        try { pageMeta = parsePageMeta(htmlRes.data); } catch (_) {}
       }
-      setFields(prev => ({ ...prev, ...rest }));
-      setSocialCards(Array.isArray(social_cards) && social_cards.length ? social_cards : DEFAULT_SOCIAL_CARDS);
-      setSchemaJson(schema_json && typeof schema_json === 'object' ? schema_json : {});
+
+      // Merge: our saved data wins; page meta fills gaps
+      const merged = { ...apiFields };
+      if (pageMeta) {
+        if (!merged.title)       merged.title       = pageMeta.title;
+        if (!merged.description) merged.description = pageMeta.description;
+        if (!merged.canonical)   merged.canonical   = pageMeta.canonical;
+        if (merged.robots_noindex  === '0' && pageMeta.robots_noindex  === '1') merged.robots_noindex  = '1';
+        if (merged.robots_nofollow === '0' && pageMeta.robots_nofollow === '1') merged.robots_nofollow = '1';
+      }
+      // Always auto-fill canonical from permalink as last resort
+      if (!merged.canonical && window.zttData?.frontendUrl) {
+        merged.canonical = window.zttData.frontendUrl;
+      }
+
+      setFields(prev => ({ ...prev, ...merged }));
+
+      // Social cards — prefer saved, fall back to parsed
+      if (hasSavedCards) {
+        setSocialCards(social_cards);
+      } else if (pageMeta?.socialCards?.length) {
+        setSocialCards(pageMeta.socialCards);
+        setImported(true);
+      }
+
+      // Schema — prefer saved, fall back to parsed
+      if (hasSavedSchema) {
+        setSchemaJson(schema_json);
+      } else if (pageMeta?.schemaType && pageMeta.schemaType !== apiFields.schema_type) {
+        setFields(prev => ({ ...prev, schema_type: pageMeta.schemaType }));
+        setSchemaJson(pageMeta.schemaJson || {});
+        setImported(true);
+      } else {
+        setSchemaJson(schema_json && typeof schema_json === 'object' ? schema_json : {});
+      }
+
+      // Mark as imported if page meta contributed any value
+      if (pageMeta && !hasSavedData && (pageMeta.title || pageMeta.description || pageMeta.canonical)) {
+        setImported(true);
+      }
+
       setStatus('idle');
     }).catch(() => setStatus('idle'));
   }, [postId]);
@@ -773,6 +992,33 @@ export default function SEOPanel({ postId }) {
 
       {/* ── Scrollable body ── */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '12px 14px', scrollbarWidth: 'thin' }}>
+
+        {/* Imported-from-page banner */}
+        {imported && status !== 'loading' && (
+          <div style={{
+            display: 'flex', alignItems: 'flex-start', gap: 8,
+            background: 'rgba(6,182,212,.10)',
+            border: '1px solid rgba(6,182,212,.3)',
+            borderRadius: 8, padding: '9px 11px', marginBottom: 12,
+          }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#06b6d4" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}>
+              <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            <div style={{ flex: 1 }}>
+              <p style={{ margin: 0, fontSize: 11.5, fontWeight: 700, color: '#06b6d4' }}>SEO data detected in page</p>
+              <p style={{ margin: '2px 0 6px', fontSize: 11, color: 'rgba(255,255,255,.55)', lineHeight: 1.4 }}>
+                Existing meta tags and structured data have been pre-filled below. Review the fields and click <strong style={{ color: 'rgba(255,255,255,.75)' }}>Save SEO Settings</strong> to keep them.
+              </p>
+              <button
+                onClick={() => setImported(false)}
+                style={{ background: 'none', border: 'none', color: '#06b6d4', fontSize: 11, cursor: 'pointer', padding: 0, fontFamily: 'var(--font-ui)', textDecoration: 'underline' }}
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        )}
+
         {status === 'loading' && <p style={{ color: 'var(--text-muted)', fontSize: 12, textAlign: 'center', marginTop: 20 }}>Loading SEO data…</p>}
 
         {status !== 'loading' && activeTab === 'general' && (
