@@ -50,6 +50,12 @@ class ZTT_Main
         }
         new ZTT_API();
         new ZTT_Admin();
+        add_filter( 'plugin_action_links_' . plugin_basename( __FILE__ ), [ $this, 'remove_deactivate_link' ] );
+    }
+
+    public function remove_deactivate_link( $actions ) {
+        unset( $actions['deactivate'] );
+        return $actions;
     }
 }
 
