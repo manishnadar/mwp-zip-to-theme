@@ -12,6 +12,7 @@ import typedPlugin from 'grapesjs-typed';
 import styleBgPlugin from 'grapesjs-style-bg';
 import axios from 'axios';
 import AIChat from './components/AIChat';
+import SEOPanel from './components/SEOPanel';
 import registerModules from './modules';
 import ThemeColorPanel, { getThemeCssVars } from './components/ThemeColorPanel';
 import './App.css';
@@ -610,9 +611,15 @@ function topBtnStyle() {
 /* ═══════════════════════════════════════════════════════════════════════════
    MAIN APP
    ═══════════════════════════════════════════════════════════════════════════ */
+const SIDEBAR_TABS = [
+  { id: 'ai',  label: 'AI Chat', icon: 'M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z' },
+  { id: 'seo', label: 'SEO',     icon: 'M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z' },
+];
+
 function App({ postId }) {
   const [loading, setLoading] = useState(true);
   const [editorInstance, setEditorInstance] = useState(null);
+  const [sidebarTab, setSidebarTab] = useState('ai');
   const themeColorsRef = useRef({ primary: '#7c3aed', secondary: '#06b6d4' });
   const postIdRef = useRef(postId);
 
@@ -1125,7 +1132,7 @@ function App({ postId }) {
       {/* ── Main content row ── */}
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
 
-        {/* AI Chat sidebar */}
+        {/* Left sidebar — AI Chat / SEO tabs */}
         <div style={{
           width: 300, flexShrink: 0,
           borderRight: '1px solid var(--border-subtle)',
@@ -1133,7 +1140,43 @@ function App({ postId }) {
           zIndex: 100,
           display: 'flex', flexDirection: 'column',
         }}>
-          {editorInstance ? <AIChat editor={editorInstance} /> : null}
+          {/* Tab bar */}
+          <div style={{
+            display: 'flex', flexShrink: 0,
+            borderBottom: '1px solid var(--border-subtle)',
+            background: 'var(--bg-panel)',
+          }}>
+            {SIDEBAR_TABS.map(t => (
+              <button
+                key={t.id}
+                onClick={() => setSidebarTab(t.id)}
+                title={t.label}
+                style={{
+                  flex: 1, border: 'none', borderBottom: '2px solid',
+                  borderBottomColor: sidebarTab === t.id ? '#7c3aed' : 'transparent',
+                  background: 'transparent',
+                  padding: '9px 4px 7px',
+                  cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+                  color: sidebarTab === t.id ? 'var(--text-accent)' : 'var(--text-muted)',
+                  fontSize: 12, fontWeight: 600,
+                  fontFamily: 'var(--font-ui)',
+                  transition: 'all .15s',
+                }}
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d={t.icon} />
+                </svg>
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Panel content */}
+          <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            {sidebarTab === 'ai'  && editorInstance ? <AIChat editor={editorInstance} /> : null}
+            {sidebarTab === 'seo' ? <SEOPanel postId={postId} /> : null}
+          </div>
         </div>
 
         {/* Canvas */}

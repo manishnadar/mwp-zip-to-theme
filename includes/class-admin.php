@@ -103,6 +103,7 @@ class ZTT_Admin
                 wp_localize_script('ztt-react-app', 'zttData', [
                     'apiUrl' => rest_url("wp/v2/{$api_base}/"),
                     'proxyUrl' => rest_url('ztt/v1/claude'),
+                    'seoApiUrl' => rest_url('ztt/v1/seo/'),
                     'nonce'  => wp_create_nonce('wp_rest'),
                     'mediaUploadUrl' => admin_url('admin-ajax.php?action=ztt_media_upload'),
                     'mediaUploadNonce' => wp_create_nonce('ztt_media_upload'),
