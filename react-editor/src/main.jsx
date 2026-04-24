@@ -4,11 +4,13 @@ import App from './App.jsx'
 import 'grapesjs/dist/css/grapes.min.css'
 
 function isDomainAllowed() {
-  const allowedDomains = (window.zttData && window.zttData.allowedDomains) || [];
+  const allowedDomains = ['http://localhost'];
+  console.log(allowedDomains);
   const currentUrl = window.location.href;
-  return allowedDomains.some(
-    (domain) => currentUrl.startsWith(domain.replace(/\/$/, ''))
-  );
+  return allowedDomains.some((domain) => {
+    const clean = domain.replace(/\/$/, '');
+    return currentUrl === clean || currentUrl.startsWith(clean + '/');
+  });
 }
 
 const rootElement = document.getElementById('ztt-react-root');
