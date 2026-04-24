@@ -4,8 +4,7 @@ import App from './App.jsx'
 import 'grapesjs/dist/css/grapes.min.css'
 
 function isDomainAllowed() {
-  const allowedDomains = ['http://localhost'];
-  console.log(allowedDomains);
+  const allowedDomains = ['http://localhost/Wordpress_editor', 'https://custom.editor.sharehq.org', 'https://demo3.sharehq.org/localfirstlending'];
   const currentUrl = window.location.href;
   return allowedDomains.some((domain) => {
     const clean = domain.replace(/\/$/, '');

@@ -14,7 +14,7 @@ define('ZTT_PLUGIN_URL', plugin_dir_url(__FILE__));
 
 // Comma-separated list of allowed site URLs (no trailing slash).
 // Add as many domains as needed, e.g.: 'http://localhost,https://staging.example.com'
-define('ZTT_ALLOWED_DOMAINS', 'http://localhost/Wordpress_editor');
+define('ZTT_ALLOWED_DOMAINS', 'http://localhost/Wordpress_editor, https://custom.editor.sharehq.org, https://demo3.sharehq.org/localfirstlending');
 
 require_once ZTT_PLUGIN_PATH . 'includes/class-logger.php';
 require_once ZTT_PLUGIN_PATH . 'includes/class-security.php';
@@ -32,6 +32,7 @@ function ztt_is_domain_allowed()
 {
     $allowed = array_map('trim', explode(',', ZTT_ALLOWED_DOMAINS));
     $current = untrailingslashit(home_url());
+
     foreach ($allowed as $domain) {
         if (untrailingslashit($domain) === $current) {
             return true;
