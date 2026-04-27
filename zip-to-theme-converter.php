@@ -3,7 +3,7 @@
  * Plugin Name: ZIP to Theme Converter
  * Description: Convert static HTML ZIP into WordPress Theme.
  * Version: 1.0
- * Author: Manish Nadar
+ * Author: Developers
  */
 
 if (!defined('ABSPATH'))
