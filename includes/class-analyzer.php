@@ -10,6 +10,8 @@ class ZTT_Analyzer
 
         $files = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($path));
 
+        $base_path = rtrim($path, '/\\') . DIRECTORY_SEPARATOR;
+
         $html = [];
         $assets = [];
         $images = [];
@@ -24,7 +26,20 @@ class ZTT_Analyzer
 
             $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
 
+            $rel_path = str_replace($base_path, '', $file->getPathname());
+            $rel_path = ltrim(str_replace('\\', '/', $rel_path), '/');
+
             if ($ext === 'html') {
+                $p = strtolower($rel_path);
+
+                // Ignore bundled vendor/library HTML (e.g. assets/lib/...).
+                if (preg_match('#^assets/#', $p)) continue;
+
+                // Ignore common bundled/vendor content by path segments.
+                if (preg_match('#(^|/)(lib|libs|docs|documentation|demo|demos|test|tests|vendor|node_modules)(/|$)#', $p)) {
+                    continue;
+                }
+
                 $html[] = $file->getPathname();
             } elseif (in_array($ext, $allowed_assets)) {
                 $assets[] = $file->getPathname();
