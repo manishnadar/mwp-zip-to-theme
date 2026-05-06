@@ -14,7 +14,7 @@ define('ZTT_PLUGIN_URL', plugin_dir_url(__FILE__));
 
 // Comma-separated list of allowed site URLs (no trailing slash).
 // Add as many domains as needed, e.g.: 'http://localhost,https://staging.example.com'
-define('ZTT_ALLOWED_DOMAINS', 'http://localhost/Wordpress_editor, https://custom.editor.sharehq.org, https://demo3.sharehq.org/localfirstlending');
+define('ZTT_ALLOWED_DOMAINS', 'http://localhost/Wordpress_editor, https://custom.editor.sharehq.org, https://demo3.sharehq.org/localfirstlending, https://demo3.sharehq.org/convertertool');
 
 require_once ZTT_PLUGIN_PATH . 'includes/class-logger.php';
 require_once ZTT_PLUGIN_PATH . 'includes/class-security.php';
@@ -25,6 +25,8 @@ require_once ZTT_PLUGIN_PATH . 'includes/class-media-importer.php';
 require_once ZTT_PLUGIN_PATH . 'includes/class-template-parser.php';
 require_once ZTT_PLUGIN_PATH . 'includes/class-asset-manager.php';
 require_once ZTT_PLUGIN_PATH . 'includes/class-theme-generator.php';
+require_once ZTT_PLUGIN_PATH . 'includes/class-package-exporter.php';
+require_once ZTT_PLUGIN_PATH . 'includes/class-package-importer.php';
 require_once ZTT_PLUGIN_PATH . 'includes/class-api.php';
 require_once ZTT_PLUGIN_PATH . 'includes/class-admin.php';
 
